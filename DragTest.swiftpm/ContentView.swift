@@ -69,32 +69,63 @@ func updatePositionsHelper(_ item: RectItem,
     indicesToMove.append(index)
     
 //  ADD BACK LATER
-//    items.forEach { childItem in
-//        if let parentId = childItem.parentId,
-////            parentId == item.id {
-//           parentId == item.id,
-//           // don't update the item again, since you already did that
-//           childItem.id != item.id {
-//
-//            let (newItems, newIndices) = updatePositionsHelper(
-//                childItem,
-//                items,
-//                indicesToMove,
-//                translationHeight)
-//
-//            // do I add all the newly updated items?
-//            // or do I have to re-insert at the index?
-//            //            items += newItems
-//            for newItem in newItems {
-//                let i = items.firstIndex { $0.id == newItem.id }!
-//                items[i] = newItem
-//            }
-//
-//            indicesToMove = newIndices
-//        }
-//    }
+    items.forEach { childItem in
+        if let parentId = childItem.parentId,
+//            parentId == item.id {
+           parentId == item.id,
+           // don't update the item again, since you already did that
+           childItem.id != item.id {
+
+            let (newItems, newIndices) = updatePositionsHelper(
+                childItem,
+                items,
+                indicesToMove,
+                translationHeight)
+
+            // do I add all the newly updated items?
+            // or do I have to re-insert at the index?
+            //            items += newItems
+            for newItem in newItems {
+                let i = items.firstIndex { $0.id == newItem.id }!
+                items[i] = newItem
+            }
+
+            indicesToMove = newIndices
+        }
+    }
     
     return (items, indicesToMove)
+}
+
+
+func maybeMoveIndices(_ items: RectItems,
+                      indicesMoved: [Int],
+                      to: Int,
+                      originalIndex: Int) -> RectItems {
+    
+    if to != originalIndex {
+        print("maybeMoveIndices: Will move...")
+        var items = items
+        
+        /*
+         listData.move(fromOffsets: IndexSet(integer: from),
+                       toOffset: to > from ? to + 1 : to)
+         */
+        items.move(fromOffsets: IndexSet(indicesMoved),
+                   toOffset: to > originalIndex ? to + 1 : to)
+        
+//        print("maybeMoveIndices: items after move: \(items)")
+        
+        items = setPositionsByIndices(items,
+                                      isDragEnded: false)
+        
+        // print("maybeMoveIndices: items after position reset by indices: \(items)")
+        
+        return items
+    } else {
+        print("maybeMoveIndices: Will NOT move...")
+        return items
+    }
 }
 
 
@@ -109,97 +140,36 @@ func onDragged(_ item: RectItem, // assumes we've already
     
     print("onDragged: item was: \(item)")
     print("onDragged: items was: \(items)")
-    print("onDragged: translation.height was: \(translation.height)")
-    
-//    let maxIndex = items.count - 1
     
     let originalItemIndex = items.firstIndex { $0.id == item.id }!
-    
-    // more, if this `item` has children
-//    var indicesofItemsToMove: [Int] = [originalItemIndex]
-    
-    // updatePositionsHelper already adds this item's  to indices to move,
-    // so we...
-    // probably didn't cause a bug because, after all, you're passing in an IndexSet
-    // to .move
-    var indicesofItemsToMove: [Int] = []
-    
-    let (newItems, newIndices) = updatePositionsHelper(item,
+        
+    // ASSUMES GROUP IS OPEN
+    // doesn't matter if group is closed? Because if it is, then we won't have even added those items to our
+    let (newItems,
+         indicesofItemsToMove) = updatePositionsHelper(item,
                                                        items,
-                                                       indicesofItemsToMove,
+                                                       [],
                                                        translation.height)
-    items = newItems
-    indicesofItemsToMove = newIndices
     
-    // make sure you use the item's updated drag position!!!
-    item = items[originalItemIndex]
+    items = newItems
+    item = items[originalItemIndex] // update the `item` too!
     
     print("onDragged: newItems: \(newItems)")
-    print("onDragged: item, should: \(item)")
+    print("onDragged: new item: \(item)")
     print("onDragged: indicesofItemsToMove: \(indicesofItemsToMove)")
     
     // ^^ not just the item's immediate children, but ALL the children's children
-    
-    // you're not using the drag-updated item!!
-    
-    
-    var manualIndex: Int
-    if item.location.y > 200 {
-        manualIndex = 2
-    } else if item.location.y > 100 {
-        manualIndex = 1
-    } else {
-        manualIndex = 0
-    }
-    
+        
     // eg [a, b, c] has max index of 2
-//    let maxIndex = items.count - 1
     let calculatedIndex = getMovedtoIndex(item: item, items: items)
-    
-//    let finalTo: Int = toIndex2
-    let finalTo: Int = manualIndex
-    let toOffset: Int = finalTo > originalItemIndex ? finalTo + 1 : finalTo
-    
-    
-    // ASSUMING GROUP IS OPEN
-    // have to also move
-    
-    // now, if we moved a parent, must also move its children
-    // those children constitute part of the
-    // ASSUMES GROUP WAS OPEN (EXPANDED)
-        
-//    print("item.location.y: \(item.location.y)")
-    
-    print("originalItemIndex: \(originalItemIndex)")
-    print("calculatedIndex: \(calculatedIndex)")
-    print("finalTo: \(finalTo)")
-    print("toOffset: \(toOffset)")
-    print("manualIndex: \(manualIndex)")
-    
-    
-    // only do this if we're indeed at a new index positon
-    if finalTo != originalItemIndex {
-        print("Will move...")
-//        items.move(fromOffsets: IndexSet(integer: originalItemIndex),
-        items.move(fromOffsets: IndexSet(indicesofItemsToMove),
-                   toOffset: finalTo > originalItemIndex ? finalTo + 1 : finalTo)
-//                   toOffset: finalTo > maxIndex ? finalTo + 1 : finalTo)
-//                   toOffset: toOffset)
-//                   toOffset: manualIndex)
-//                   toOffset: to1)
-        
-        print("items after move: \(items)")
-        items = setPositionsByIndices(items,
-                                      isDragEnded: false)
-        print("items after position reset by indices: \(items)")
-    }
-    
-    /*
-     listData.move(fromOffsets: IndexSet(integer: from),
-                   toOffset: to > from ? to + 1 : to)
-     */
-    
-    return items
+
+//    print("originalItemIndex: \(originalItemIndex)")
+//    print("calculatedIndex: \(calculatedIndex)")
+
+    return maybeMoveIndices(items,
+                            indicesMoved: indicesofItemsToMove,
+                            to: calculatedIndex,
+                            originalIndex: originalItemIndex)
 }
 
 
@@ -432,10 +402,10 @@ struct ContentView: View {
 
     @State private var rectItems: RectItems = itemsFromColors(
 //        [.red, .green, .blue, .purple, .orange],
-        sampleColors0,
+//        sampleColors0,
 //        sampleColors1,
 //        sampleColors2,
-//        sampleColors3,
+        sampleColors3,
         Int(rectHeight))
     
     @State var isExpanded = false
@@ -455,7 +425,7 @@ struct ContentView: View {
             } // ForEach
         } // ZStack
         .animation(.default)
-//        .offset(x: -200, y: -300)
+        .offset(x: -200, y: -400)
     }
 }
 
@@ -484,8 +454,6 @@ struct ContentView: View {
 //        .animation(.default)
 //    }
 //}
-
-
 
 
 struct RectItem: Identifiable, Equatable {
