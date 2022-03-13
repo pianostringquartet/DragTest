@@ -108,16 +108,20 @@ func itemsFromColorHelper(_ color: MyColor,
 
 
 
-struct ItemId: Equatable {
+struct ItemId: Identifiable, Equatable {
     let value: Int
     
     init(_ value: Int) {
         self.value = value
     }
+    
+    var id: Int {
+        value
+    }
 }
 
-//struct RectItem: Identifiable, Equatable {
 struct RectItem: Equatable {
+//struct RectItem: Identifiable, Equatable {
 //    let id: Int
     let id: ItemId
     let color: Color
@@ -184,8 +188,6 @@ struct RectView2: View {
 //            .border((current.map { $0 == item.id } ?? false) ? .gray : .clear,
             .border((current.map { $0 == item.id } ?? false) ? .white : .clear,
                     width: 16)
-            
-//            .overlay(Rect)
             .frame(width: rectWidth, height: rectHeight)
             .overlay(
                 HStack {
@@ -194,10 +196,22 @@ struct RectView2: View {
                         Text("Id: \(item.id.value)")
                         Text("Parent?: \(item.parentId?.value.description ?? "None")")
                     }
-                    Text("")
+                    
+                    if hasChildren(item.id, items) {
+                        let isClosed = isGroupClosed(item.id, items)
+                        Text("\(isClosed ? "OPEN" : "CLOSE")")
+                            .onTapGesture {
+                               log("onTap...")
+                                if isClosed {
+                                    items = groupOpened(openedId: item.id, items)
+                                } else {
+                                    items = groupClosed(closedId: item.id, items)
+                                }
+                                    
+                            }
+                    }
                 }
-                
-                        .scaleEffect(1.4)
+                    .scaleEffect(1.4)
             )
             .foregroundColor(.white)
             .border(.orange)
@@ -295,7 +309,7 @@ func adjustItemsBelow(_ parentItem: RectItem, // parent that was opened or close
         // below = item's
         if item.itemIndex(items) > parentIndex {
             var item = item
-            // adjust by location and previousLocation
+            // adjust both location and previousLocation
             item.location = CGPoint(x: item.location.x,
                                     y: item.location.y + adjustment)
             item.previousLocation = item.location
@@ -307,28 +321,81 @@ func adjustItemsBelow(_ parentItem: RectItem, // parent that was opened or close
     }
 }
 
+func log(_ string: String) {
+    print(string)
+}
+
 // are you really distinguishing between indices and items?
 func retrieveItem(_ id: ItemId, _ items: RectItems) -> RectItem {
     items.first { $0.id == id }!
 }
 
-func groupClosed(closedId: ItemId, _ items: RectItems) -> RectItems {
+// does this item have any children? (whether closed or open)
+func hasChildren(_ parentId: ItemId, _ items: RectItems) -> Bool {
+    !childrenForParent(parentId: parentId, items).isEmpty
+}
+
+func isGroupClosed(_ parentId: ItemId, _ items: RectItems) -> Bool {
     
+    // if all children for this parent are hidden (ie closed),
+    // then the parent (ie group) is considered closed
+    childrenForParent(parentId: parentId,
+                      items).allSatisfy { $0.isHidden }
+    
+//    for item in items {
+//        // if any items for thise
+//        if item.parentId == parentId,
+//           !item.isHidden {
+//            return false
+//        }
+//    }
+//    return true
+}
+
+
+func groupClosed(closedId: ItemId, _ items: RectItems) -> RectItems {
+    print("groupClosed called")
     let childrenCount = childrenForParent(
         parentId: closedId,
         items).count
     
     let moveUpBy = childrenCount * VIEW_HEIGHT
     
-    // hide the children
+    // hide the children; does not change count of item
     var items = hideChildren(closedParent: closedId, items)
     
-//    // and move any items below this parent upward
-//    items = adjustItemsBelow(<#T##parentItem: RectItem##RectItem#>, adjustment: <#T##CGFloat#>, <#T##items: RectItems##RectItems#>)
+    let parentItem = retrieveItem(closedId, items)
+    
+    // and move any items below this parent upward
+    items = adjustItemsBelow(parentItem,
+                             adjustment: CGFloat(moveUpBy),
+                             items)
     
     return items
 }
 
+
+func groupOpened(openedId: ItemId, _ items: RectItems) -> RectItems {
+    print("groupOpened called")
+    
+    let childrenCount = childrenForParent(
+        parentId: openedId,
+        items).count
+    
+    let moveDownBy = -(childrenCount * VIEW_HEIGHT)
+    
+    // unhide the children; does not change count of item
+    var items = unhideChildren(openedParent: openedId, items)
+
+    let parentItem = retrieveItem(openedId, items)
+    
+    // and move any items below this parent DOWN
+    items = adjustItemsBelow(parentItem,
+                             adjustment: CGFloat(moveDownBy),
+                             items)
+    
+    return items
+}
 
 // works!
 func getMovedtoIndex(item: RectItem,
@@ -642,38 +709,6 @@ func setPositionsByIndices(_ items: RectItems,
         return item
     }
 }
-
-//func setPositionsByIndices(_ items: RectItems,
-//                           isDragEnded: Bool = false,
-//                           _ viewHeight: Int = 100) -> RectItems {
-//
-//    // these are
-//    items.map { item in
-//        // need to keep the level of nesting, which never changes when reseting positions
-//        let offset = item.id // id is also its masterList Index
-//        var item = item
-//        let newLocation = CGPoint(x: item.location.x,
-//                                  y: CGFloat(offset * viewHeight))
-//        item.location = newLocation
-//        if isDragEnded {
-//            print("setPositionsByIndices: drag ended, so resetting previous position")
-//            item.previousLocation = newLocation
-//        }
-//        return item
-//    }
-//}
-
-
-
-// ^^ for LayerNodes, we can't directly turn layer's position in ordered-dict into its position, since there might be intervening layer nodes that are part of a
-// ... so will need something
-// so will need some function that turns
-// ... you will need
-
-// ^^ actually, this should be okay? since we'll first generate the sidebar items in proper order and leveling/nested
-// (based on layerNodes ordered-dict + groups dict)
-// and then from there can generate what you need
-
 
 struct ContentView: View {
 
