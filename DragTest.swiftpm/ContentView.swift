@@ -4,32 +4,18 @@ let rectHeight: CGFloat = 100
 let rectWidth: CGFloat = 400
 
 
+
+
 typealias RectItems = [RectItem]
 
 // position-less data to positioned data
 // equivalent to: (LayerNodes -> [SidebarItem(position:)]
-func itemsFromColors(_ colors: [Color],
-                     _ viewHeight: Int = 100) -> RectItems {
-    
-    colors.enumerated().map { x in
-        let color = x.element
-        let index = x.offset
-        let y = viewHeight * index
-        
-        return RectItem(id: ItemId(index),
-//        return RectItem(id: color,
-                        color: color,
-                        location: CGPoint(x: 0, y: y))
-    }
-}
 
 // for nested data
 struct MyColor: Equatable {
     let color: Color
     var children: [MyColor] = []
 }
-
-
 
 // Given a nested, ordered data structure, returns a flattened data structure with positions based on nesting + order
 // for creating master list: RectItems with positions based on nesting etc.
@@ -55,6 +41,24 @@ func itemsFromColors(_ colors: [MyColor],
     }
     print("itemsFromColors: items: \(items)")
     return items
+}
+
+// ie assumes we create all the groups OPEN?
+func masterListFromColors(_ colors: [MyColor]) -> MasterList {
+    let items = itemsFromColors(colors, VIEW_HEIGHT)
+    let groups = buildGroupsFromItems(items)
+    return MasterList(items, groups)
+}
+
+func buildGroupsFromItems(_ items: RectItems) -> ParentDict {
+    var groupsDict = ParentDict()
+    for item in items {
+        // any items that have parentId = this item's id
+        let children = items.filter { ($0.parentId ?? nil) == item.id }
+        groupsDict.updateValue(children.map(\.id),
+                               forKey: item.id)
+    }
+    return groupsDict
 }
 
 
@@ -107,8 +111,20 @@ func itemsFromColorHelper(_ color: MyColor,
 }
 
 
+// parentId: [children in order]
+typealias ParentDict = [ItemId: [ItemId]]
 
-struct ItemId: Identifiable, Equatable {
+struct MasterList: Equatable {
+    var items: RectItems
+    var groups: ParentDict
+    
+    init(_ items: RectItems, _ groups: ParentDict) {
+        self.items = items
+        self.groups = groups
+    }
+}
+
+struct ItemId: Identifiable, Equatable, Hashable {
     let value: Int
     
     init(_ value: Int) {
@@ -177,10 +193,13 @@ extension Optional {
     }
 }
 
+
+
 struct RectView2: View {
     
     var item: RectItem
-    @Binding var items: RectItems // all items
+//    @Binding var items: RectItems // all items
+    @Binding var masterList: MasterList // all items + groups
     @Binding var current: ItemId?
     
     var body: some View {
@@ -206,16 +225,16 @@ struct RectView2: View {
                         Text("Parent?: \(item.parentId?.value.description ?? "None")")
                     }
                     
-                    if hasChildren(item.id, items) {
-                        let isClosed = isGroupClosed(item.id, items)
+                    if hasChildren(item.id, masterList.items) {
+                        let isClosed = isGroupClosed(item.id, masterList.items)
 //                        Spacer()
                         Text("\(isClosed ? "OPEN" : "CLOSE")").offset(x: 40)
                             .onTapGesture {
                                log("onTap...")
                                 if isClosed {
-                                    items = groupOpened(openedId: item.id, items)
+                                    masterList.items = groupOpened(openedId: item.id, masterList.items)
                                 } else {
-                                    items = groupClosed(closedId: item.id, items)
+                                    masterList.items = groupClosed(closedId: item.id, masterList.items)
                                 }
                                     
                             }
@@ -244,10 +263,11 @@ struct RectView2: View {
                 current = item.id
                 var item = item
                 item.zIndex = 9999
-                items = onDragged(item, // this dragged item
-                                  value.translation, // drag data
-                                  // ALL items
-                                  items)
+                masterList.items = onDragged(
+                    item, // this dragged item
+                    value.translation, // drag data
+                    // ALL items
+                    masterList.items)
                 
                 // ^^ now that we've updated the location of the item,
                 // we might need to also move the other items
@@ -260,9 +280,10 @@ struct RectView2: View {
                 var item = item
                 item.previousLocation = item.location
                 item.zIndex = 0 // set to zero when drag ended
-                let index = items.firstIndex { $0.id == item.id }!
-                items[index] = item
-                items = onDragEnded(item, items)
+                
+                let index = masterList.items.firstIndex { $0.id == item.id }!
+                masterList.items[index] = item
+                masterList.items = onDragEnded(item, masterList.items)
                 
             })
             ) // gesture
@@ -616,6 +637,10 @@ func onDragged(_ item: RectItem, // assumes we've already
     print("onDragged: item was: \(item)")
     print("onDragged: items was: \(items)")
     
+    items = nonHiddenItemsOnly(items)
+    
+    print("onDragged: items filtered to: \(items)")
+    
     let originalItemIndex = items.firstIndex { $0.id == item.id }!
     
 
@@ -674,7 +699,13 @@ func onDragged(_ item: RectItem, // assumes we've already
 // when drag ends, we pop the views back into place via their indices
 func onDragEnded(_ item: RectItem, _ items: [RectItem]) -> [RectItem] {
     print("onDragEnded called")
-    let items = setPositionsByIndices(items, isDragEnded: true)
+    var items = items
+    
+    // when you filter out the items, you remove them!
+    // you actually want to keep them around, you just don't want to touch them etc.
+    items = nonHiddenItemsOnly(items)
+    print("onDragEnded: items filtered to: \(items)")
+    items = setPositionsByIndices(items, isDragEnded: true)
     print("onDragEnded: items is now: \(items)")
     return items
 }
@@ -725,15 +756,21 @@ func setPositionsByIndices(_ items: RectItems,
 
 struct ContentView: View {
 
-    @State private var rectItems: RectItems = itemsFromColors(
-//        [.red, .green, .blue, .purple, .orange],
-//        sampleColors0,
-//        sampleColors1,
-        sampleColors2,
-//        sampleColors3,
-        Int(rectHeight))
+//    @State private var rectItems: RectItems = itemsFromColors(
+////        [.red, .green, .blue, .purple, .orange],
+////        sampleColors0,
+////        sampleColors1,
+//        sampleColors2,
+////        sampleColors3,
+//        Int(rectHeight))
     
-    @State var isExpanded = false
+    @State private var masterList: MasterList = masterListFromColors(
+        //        sampleColors0
+        //        sampleColors1
+                sampleColors2
+        //        sampleColors3
+    )
+    
     
     // the current id being dragged
     // nil when we're not dragging anything
@@ -742,9 +779,9 @@ struct ContentView: View {
     var body: some View {
         
         ZStack {
-            ForEach(rectItems, id: \.id.value) { (d: RectItem) in
+            ForEach(masterList.items, id: \.id.value) { (d: RectItem) in
                 RectView2(item: d,
-                          items: $rectItems,
+                          masterList: $masterList,
                           current: $current)
                     .zIndex(Double(d.zIndex))
             } // ForEach
