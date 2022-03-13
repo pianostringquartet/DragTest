@@ -184,6 +184,15 @@ struct RectView2: View {
     @Binding var current: ItemId?
     
     var body: some View {
+        if item.isHidden {
+            EmptyView()
+        } else {
+            rectangle
+        }
+    }
+    
+//    var body: some View {
+    var rectangle: some View {
         Rectangle().fill(item.color)
 //            .border((current.map { $0 == item.id } ?? false) ? .gray : .clear,
             .border((current.map { $0 == item.id } ?? false) ? .white : .clear,
@@ -199,7 +208,8 @@ struct RectView2: View {
                     
                     if hasChildren(item.id, items) {
                         let isClosed = isGroupClosed(item.id, items)
-                        Text("\(isClosed ? "OPEN" : "CLOSE")")
+//                        Spacer()
+                        Text("\(isClosed ? "OPEN" : "CLOSE")").offset(x: 40)
                             .onTapGesture {
                                log("onTap...")
                                 if isClosed {
@@ -339,8 +349,10 @@ func isGroupClosed(_ parentId: ItemId, _ items: RectItems) -> Bool {
     
     // if all children for this parent are hidden (ie closed),
     // then the parent (ie group) is considered closed
-    childrenForParent(parentId: parentId,
+    let x = childrenForParent(parentId: parentId,
                       items).allSatisfy { $0.isHidden }
+    log("isGroupClosed: parentId: \(parentId): \(x)")
+    return x
     
 //    for item in items {
 //        // if any items for thise
@@ -355,6 +367,7 @@ func isGroupClosed(_ parentId: ItemId, _ items: RectItems) -> Bool {
 
 func groupClosed(closedId: ItemId, _ items: RectItems) -> RectItems {
     print("groupClosed called")
+    
     let childrenCount = childrenForParent(
         parentId: closedId,
         items).count
@@ -368,7 +381,7 @@ func groupClosed(closedId: ItemId, _ items: RectItems) -> RectItems {
     
     // and move any items below this parent upward
     items = adjustItemsBelow(parentItem,
-                             adjustment: CGFloat(moveUpBy),
+                             adjustment: -CGFloat(moveUpBy),
                              items)
     
     return items
@@ -382,7 +395,7 @@ func groupOpened(openedId: ItemId, _ items: RectItems) -> RectItems {
         parentId: openedId,
         items).count
     
-    let moveDownBy = -(childrenCount * VIEW_HEIGHT)
+    let moveDownBy = childrenCount * VIEW_HEIGHT
     
     // unhide the children; does not change count of item
     var items = unhideChildren(openedParent: openedId, items)
