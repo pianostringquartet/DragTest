@@ -396,6 +396,23 @@ func childrenForParent(parentId: ItemId,
     items.filter { $0.parentId == parentId }
 }
 
+//// the currently-open/present children
+//// includes nested all the way down
+//func _childrenForParent(parentId: ItemId,
+//                       _ items: RectItems) -> RectItems {
+//
+////    items.filter { $0.parentId == parentId }
+//
+//    for item in items {
+//
+//    }
+//
+//
+//}
+
+
+
+
 let VIEW_HEIGHT: Int = 100
 
 func adjustItemsBelow(_ parentId: ItemId,
@@ -484,6 +501,7 @@ func isGroupClosed(_ parentId: ItemId, _ master: MasterList) -> Bool {
 // - remove parent's children from `items`
 // - add removed children to ExcludedGroups dict
 // - move up the position of items below the now-closed parent
+
 func groupClosed(closedId: ItemId,
                  _ masterList: MasterList) -> MasterList {
     print("groupClosed called")
@@ -515,6 +533,38 @@ func groupClosed(closedId: ItemId,
 
     return masterList
 }
+
+//func groupClosed(closedId: ItemId,
+//                 _ masterList: MasterList) -> MasterList {
+//    print("groupClosed called")
+//
+//    let childrenCount = childrenForParent(
+//        parentId: closedId,
+//        masterList.items).count
+//
+//    let moveUpBy = childrenCount * VIEW_HEIGHT
+//
+//    var masterList = masterList
+//
+//    // hide the children; does not change count of item
+////    items = hideChildren(closedParent: closedId, items)
+//    masterList = hideChildren(closedParent: closedId,
+//                              masterList)
+//
+//    // should still be able to find parent
+//    let parentItem = retrieveItem(closedId, masterList.items)
+//    let parentIndex = parentItem.itemIndex(masterList.items)
+//
+//    // and move any items below this parent upward
+//    masterList.items = adjustItemsBelow(
+//        parentItem.id,
+//        parentIndex,
+//        adjustment: -CGFloat(moveUpBy),
+//        masterList.items)
+//    // ^^ removing the children from here should not matter, because it does not change the fact that items below parent are still below the parent
+//
+//    return masterList
+//}
 
 
 //func groupOpened(openedId: ItemId, _ items: RectItems) -> RectItems {
@@ -920,19 +970,11 @@ func setPositionsByIndices(_ items: RectItems,
 }
 
 struct ContentView: View {
-
-//    @State private var rectItems: RectItems = itemsFromColors(
-////        [.red, .green, .blue, .purple, .orange],
-////        sampleColors0,
-////        sampleColors1,
-//        sampleColors2,
-////        sampleColors3,
-//        Int(rectHeight))
     
     @State private var masterList = MasterList.fromColors(
         //        sampleColors0
-        //        sampleColors1
-                sampleColors2
+                sampleColors1
+//                sampleColors2
         //        sampleColors3
     )
     
