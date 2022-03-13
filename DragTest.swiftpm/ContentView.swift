@@ -4,8 +4,122 @@ let rectHeight: CGFloat = 100
 let rectWidth: CGFloat = 400
 
 
-struct RectItem: Identifiable, Equatable {
-    let id: Int
+typealias RectItems = [RectItem]
+
+// position-less data to positioned data
+// equivalent to: (LayerNodes -> [SidebarItem(position:)]
+func itemsFromColors(_ colors: [Color],
+                     _ viewHeight: Int = 100) -> RectItems {
+    
+    colors.enumerated().map { x in
+        let color = x.element
+        let index = x.offset
+        let y = viewHeight * index
+        
+        return RectItem(id: ItemId(index),
+//        return RectItem(id: color,
+                        color: color,
+                        location: CGPoint(x: 0, y: y))
+    }
+}
+
+// for nested data
+struct MyColor: Equatable {
+    let color: Color
+    var children: [MyColor] = []
+}
+
+
+
+// Given a nested, ordered data structure, returns a flattened data structure with positions based on nesting + order
+// for creating master list: RectItems with positions based on nesting etc.
+func itemsFromColors(_ colors: [MyColor],
+                     _ viewHeight: Int = 100) -> RectItems {
+    
+    // We increment upon each item (and each item's childItem)
+    // hence we start at -1
+    var currentHighestIndex = -1
+    var items = RectItems()
+    
+    colors.forEach { color in
+        let (newIndex, newItems, _) = itemsFromColorHelper(
+            color,
+            currentHighestIndex,
+            // nil when at top level
+            parentId: nil,
+            // 0 when at top
+            nestingLevel: 0)
+        
+        currentHighestIndex = newIndex
+        items += newItems
+    }
+    print("itemsFromColors: items: \(items)")
+    return items
+}
+
+
+// have to keep going through
+func itemsFromColorHelper(_ color: MyColor,
+                          _ currentHighestIndex: Int,
+                          parentId: ItemId?,
+                          nestingLevel: Int,
+                          viewHeight: Int = 100) -> (Int, RectItems, Int) {
+    
+//    print("itemsFromColorHelper: color: \(color)")
+    var currentHighestIndex = currentHighestIndex
+    var items = RectItems()
+    var nestingLevel = nestingLevel
+    
+    currentHighestIndex += 1
+    
+    let item = RectItem(id: ItemId(currentHighestIndex),
+//    let item = RectItem(id: color.color,
+                        color: color.color,
+                        location: CGPoint(x: (viewHeight/2) * nestingLevel,
+                                          y: viewHeight * currentHighestIndex),
+                        parentId: parentId)
+    
+    items.append(item)
+    
+    // if we're about to go down another level,
+    // increment the nesting
+    if !color.children.isEmpty {
+        nestingLevel += 1
+    }
+    
+    color.children.forEach { childColor in
+        let (newIndex, newItems, newLevel) = itemsFromColorHelper(
+            childColor,
+            currentHighestIndex,
+            parentId: item.id,
+            nestingLevel: nestingLevel)
+        
+//        print("itemsFromColorHelper: newIndex: \(newIndex)")
+//        print("itemsFromColorHelper: newItems: \(newItems)")
+//        print("itemsFromColorHelper: newLevel: \(newLevel)")
+        
+        currentHighestIndex = newIndex
+        items += newItems
+        nestingLevel = newLevel
+    }
+    
+    return (currentHighestIndex, items, nestingLevel)
+}
+
+
+
+struct ItemId: Equatable {
+    let value: Int
+    
+    init(_ value: Int) {
+        self.value = value
+    }
+}
+
+//struct RectItem: Identifiable, Equatable {
+struct RectItem: Equatable {
+//    let id: Int
+    let id: ItemId
     let color: Color
     var location: CGPoint
     var previousLocation: CGPoint
@@ -13,16 +127,44 @@ struct RectItem: Identifiable, Equatable {
     var zIndex: Int = 0
     
     // for converting items back into nested data
-    var parentId: Int? = nil
+    var parentId: ItemId? = nil
     
-    init(id: Int, color: Color, location: CGPoint, children: [RectItem] = [], parentId: Int? = nil) {
+    // true just when this item is part of a group
+    // that has been closed;
+    // can NEVER be `true` if parent
+    var isHidden = false
+    
+//    var isHidden: Bool {
+//        get {
+//            if self.isHidden && !parentId.isDefined {
+//                fatalError()
+//            }
+//            return self.isHidden
+//        }
+//        set(value) {
+//            self.isHidden = value
+//        }
+//    }
+    
+//    init(id: Int,
+    init(id: ItemId,
+         color: Color, location: CGPoint, children: [RectItem] = [], parentId: ItemId? = nil, isHidden: Bool = false) {
         self.id = id
         self.color = color
         self.location = location
         self.previousLocation = location
         self.children = children
         self.parentId = parentId
+        self.isHidden = isHidden
     }
+    
+    // this item's index
+    func itemIndex(_ items: RectItems) -> Int {
+        // does "firstIndex(of: self) vs. of $0.id == thisItem.id matter?
+        items.firstIndex(of: self)!
+    }
+    
+    
 }
 
 extension Optional {
@@ -35,21 +177,27 @@ struct RectView2: View {
     
     var item: RectItem
     @Binding var items: RectItems // all items
-    @Binding var current: Int?
+    @Binding var current: ItemId?
     
     var body: some View {
         Rectangle().fill(item.color)
 //            .border((current.map { $0 == item.id } ?? false) ? .gray : .clear,
-//                    width: 8)
             .border((current.map { $0 == item.id } ?? false) ? .white : .clear,
                     width: 16)
-         
+            
 //            .overlay(Rect)
             .frame(width: rectWidth, height: rectHeight)
-            .overlay(VStack {
-                Text("Id: \(item.id)")
-                Text("Parent?: \(item.parentId?.description ?? "None")")
-            }.scaleEffect(1.4)
+            .overlay(
+                HStack {
+                    VStack {
+//                        Text("Id: \(item.id)")
+                        Text("Id: \(item.id.value)")
+                        Text("Parent?: \(item.parentId?.value.description ?? "None")")
+                    }
+                    Text("")
+                }
+                
+                        .scaleEffect(1.4)
             )
             .foregroundColor(.white)
             .border(.orange)
@@ -95,6 +243,90 @@ struct RectView2: View {
             })
             ) // gesture
     }
+}
+
+
+func nonHiddenItemsOnly(_ items: RectItems) -> RectItems {
+    items.filter { !$0.isHidden }
+}
+
+func hideChildren(closedParent: ItemId,
+                  _ items: RectItems) -> RectItems {
+    items.map { item in
+        var item = item
+        if item.parentId == closedParent {
+            item.isHidden = true
+            return item
+        }
+        return item
+    }
+}
+
+func unhideChildren(openedParent: ItemId,
+                    _ items: RectItems) -> RectItems {
+    items.map { item in
+        var item = item
+        if item.parentId == openedParent {
+            item.isHidden = false
+            return item
+        }
+        return item
+    }
+}
+
+// all children, closed or open
+func childrenForParent(parentId: ItemId,
+                       _ items: RectItems) -> RectItems {
+    items.filter { $0.parentId == parentId }
+}
+
+let VIEW_HEIGHT: Int = 100
+
+
+
+func adjustItemsBelow(_ parentItem: RectItem, // parent that was opened or closed
+                       adjustment: CGFloat, // down = +y; up = -y
+                       _ items: RectItems) -> RectItems {
+    
+    let parentIndex = parentItem.itemIndex(items)
+    
+    return items.map { item in
+        // ie is this item below the parent?
+        // below = item's
+        if item.itemIndex(items) > parentIndex {
+            var item = item
+            // adjust by location and previousLocation
+            item.location = CGPoint(x: item.location.x,
+                                    y: item.location.y + adjustment)
+            item.previousLocation = item.location
+            return item
+        } else {
+            print("Will not adjust item \(item.color)")
+            return item
+        }
+    }
+}
+
+// are you really distinguishing between indices and items?
+func retrieveItem(_ id: ItemId, _ items: RectItems) -> RectItem {
+    items.first { $0.id == id }!
+}
+
+func groupClosed(closedId: ItemId, _ items: RectItems) -> RectItems {
+    
+    let childrenCount = childrenForParent(
+        parentId: closedId,
+        items).count
+    
+    let moveUpBy = childrenCount * VIEW_HEIGHT
+    
+    // hide the children
+    var items = hideChildren(closedParent: closedId, items)
+    
+//    // and move any items below this parent upward
+//    items = adjustItemsBelow(<#T##parentItem: RectItem##RectItem#>, adjustment: <#T##CGFloat#>, <#T##items: RectItems##RectItems#>)
+    
+    return items
 }
 
 
@@ -375,105 +607,6 @@ func updatePosition(translationHeight: CGFloat,
 }
 
 
-typealias RectItems = [RectItem]
-
-// position-less data to positioned data
-// equivalent to: (LayerNodes -> [SidebarItem(position:)]
-func itemsFromColors(_ colors: [Color],
-                     _ viewHeight: Int = 100) -> RectItems {
-    colors.enumerated().map { x in
-        let color = x.element
-        let index = x.offset
-        let y = viewHeight * index
-        
-        return RectItem(id: index,
-                        color: color,
-                        location: CGPoint(x: 0, y: y))
-    }
-}
-
-// for nested data
-struct MyColor: Equatable {
-    let color: Color
-    var children: [MyColor] = []
-}
-
-
-
-// Given a nested, ordered data structure, returns a flattened data structure with positions based on nesting + order
-// for creating master list: RectItems with positions based on nesting etc.
-func itemsFromColors(_ colors: [MyColor],
-                     _ viewHeight: Int = 100) -> RectItems {
-    
-    // We increment upon each item (and each item's childItem)
-    // hence we start at -1
-    var currentHighestIndex = -1
-    var items = RectItems()
-    
-    colors.forEach { color in
-        let (newIndex, newItems, _) = itemsFromColorHelper(
-            color,
-            currentHighestIndex,
-            // nil when at top level
-            parentId: nil,
-            // 0 when at top
-            nestingLevel: 0)
-        
-        currentHighestIndex = newIndex
-        items += newItems
-    }
-    print("itemsFromColors: items: \(items)")
-    return items
-}
-
-
-// have to keep going through
-func itemsFromColorHelper(_ color: MyColor,
-                          _ currentHighestIndex: Int,
-                          parentId: Int?,
-                          nestingLevel: Int,
-                          viewHeight: Int = 100) -> (Int, RectItems, Int) {
-    
-//    print("itemsFromColorHelper: color: \(color)")
-    var currentHighestIndex = currentHighestIndex
-    var items = RectItems()
-    var nestingLevel = nestingLevel
-    
-    currentHighestIndex += 1
-    
-    let item = RectItem(id: currentHighestIndex,
-                        color: color.color,
-                        location: CGPoint(x: (viewHeight/2) * nestingLevel,
-                                          y: viewHeight * currentHighestIndex),
-                        parentId: parentId)
-    
-    items.append(item)
-    
-    // if we're about to go down another level,
-    // increment the nesting
-    if !color.children.isEmpty {
-        nestingLevel += 1
-    }
-    
-    color.children.forEach { childColor in
-        let (newIndex, newItems, newLevel) = itemsFromColorHelper(
-            childColor,
-            currentHighestIndex,
-            parentId: item.id,
-            nestingLevel: nestingLevel)
-        
-//        print("itemsFromColorHelper: newIndex: \(newIndex)")
-//        print("itemsFromColorHelper: newItems: \(newItems)")
-//        print("itemsFromColorHelper: newLevel: \(newLevel)")
-        
-        currentHighestIndex = newIndex
-        items += newItems
-        nestingLevel = newLevel
-    }
-    
-    return (currentHighestIndex, items, nestingLevel)
-}
-
 
 // eg given some existing items, with various positions,
 
@@ -556,12 +689,12 @@ struct ContentView: View {
     
     // the current id being dragged
     // nil when we're not dragging anything
-    @State var current: Int? = nil
+    @State var current: ItemId? = nil
     
     var body: some View {
         
         ZStack {
-            ForEach(rectItems, id: \.id) { (d: RectItem) in
+            ForEach(rectItems, id: \.id.value) { (d: RectItem) in
                 RectView2(item: d,
                           items: $rectItems,
                           current: $current)
