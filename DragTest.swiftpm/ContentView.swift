@@ -5,6 +5,16 @@ let rectWidth: CGFloat = 400
 
 
 
+// if nil, then the 'proposed group' is top level
+// and xIdentation = 0
+struct ProposedGroup: Equatable {
+    // ie aboveItem.parentId
+    let parentId: ItemId //
+    
+    // ie aboveItem.location.x
+    let xIndentation: CGFloat
+}
+
 
 typealias RectItems = [RectItem]
 
@@ -54,8 +64,8 @@ func itemsFromColors(_ colors: [MyColor],
 //}
 
 // not needed?
-func buildGroupsFromItems(_ items: RectItems) -> ExcludedGroups {
-    var groupsDict = ExcludedGroups()
+func buildGroupsFromItems(_ items: RectItems) -> ItemGroups {
+    var groupsDict = ItemGroups()
     for item in items {
         // any items that have parentId = this item's id
         let children = items.filter { ($0.parentId ?? nil) == item.id }
@@ -116,25 +126,28 @@ func itemsFromColorHelper(_ color: MyColor,
 
 
 // parentId: [children in order]
-typealias ExcludedGroups = [ItemId: RectItems]
+typealias ItemGroups = [ItemId: RectItems]
 // ^^ needs to be full child, since needs to preserve color etc.;
 // note that full child's location will be updated when adding back into `items` list
 
 struct MasterList: Equatable {
     var items: RectItems
     // the [parentId: child-ids] that are not currently shown
-    var excludedChildren: ExcludedGroups
+    var excludedGroups: ItemGroups
     
-    init(_ items: RectItems, _ groups: ExcludedGroups) {
+    // groups currently shown
+//    var visibleGroups: ItemGroups
+    
+    init(_ items: RectItems, _ groups: ItemGroups) {
         self.items = items
-        self.excludedChildren = groups
+        self.excludedGroups = groups
     }
     
     // ASSUMES ALL GROUPS OPEN
     static func fromColors(_ colors: [MyColor]) -> MasterList {
         let items = itemsFromColors(colors, VIEW_HEIGHT)
     //    let groups = buildGroupsFromItems(items)
-        let groups = ExcludedGroups()
+        let groups = ItemGroups()
         return MasterList(items, groups)
     }
 }
@@ -196,7 +209,8 @@ struct RectItem: Equatable {
     // this item's index
     func itemIndex(_ items: RectItems) -> Int {
         // does "firstIndex(of: self) vs. of $0.id == thisItem.id matter?
-        items.firstIndex(of: self)!
+//        items.firstIndex(of: self)!
+        items.firstIndex { $0.id == self.id }!
     }
     
     
@@ -216,6 +230,7 @@ struct RectView2: View {
 //    @Binding var items: RectItems // all items
     @Binding var masterList: MasterList // all items + groups
     @Binding var current: ItemId?
+    @Binding var proposedGroup: ProposedGroup?
     
     var body: some View {
         rectangle
@@ -228,31 +243,34 @@ struct RectView2: View {
     
 //    var body: some View {
     var rectangle: some View {
-        Rectangle().fill(item.color)
-//            .border((current.map { $0 == item.id } ?? false) ? .gray : .clear,
-            .border((current.map { $0 == item.id } ?? false) ? .white : .clear,
-                    width: 16)
+        
+        let isBeingDraggedColor: Color = (current.map { $0 == item.id } ?? false) ? .white : .clear
+        
+        let isProposedGroupColor: Color = (proposedGroup?.parentId == item.id) ? .cyan : .clear
+        
+        return Rectangle().fill(item.color)
+            .border(isBeingDraggedColor, width: 16)
+//            .border(isProposedGroupColor, width: 8)
+            .overlay(isProposedGroupColor.opacity(0.5))
             .frame(width: rectWidth, height: rectHeight)
             .overlay(
                 HStack {
                     VStack {
-//                        Text("Id: \(item.id)")
                         Text("Id: \(item.id.value)")
                         Text("Parent?: \(item.parentId?.value.description ?? "None")")
                     }
                     
                     if hasChildren(item.id, masterList) {
                         let isClosed = isGroupClosed(item.id, masterList)
-//                        Spacer()
                         Text("\(isClosed ? "OPEN" : "CLOSE")").offset(x: 40)
                             .onTapGesture {
-                               log("onTap...")
+                                log("onTap...")
                                 if isClosed {
                                     masterList = groupOpened(openedId: item.id, masterList)
                                 } else {
                                     masterList = groupClosed(closedId: item.id, masterList)
                                 }
-                                    
+                                
                             }
                     }
                 }
@@ -279,11 +297,15 @@ struct RectView2: View {
                 current = item.id
                 var item = item
                 item.zIndex = 9999
-                masterList.items = onDragged(
+                
+                let (newItems, proposed) = onDragged(
                     item, // this dragged item
                     value.translation, // drag data
                     // ALL items
                     masterList.items)
+                
+                masterList.items = newItems
+                proposedGroup = proposed
                 
                 // ^^ now that we've updated the location of the item,
                 // we might need to also move the other items
@@ -299,7 +321,13 @@ struct RectView2: View {
                 
                 let index = masterList.items.firstIndex { $0.id == item.id }!
                 masterList.items[index] = item
-                masterList.items = onDragEnded(item, masterList.items)
+                masterList.items = onDragEnded(
+                    item,
+                    masterList.items,
+                    proposed: proposedGroup)
+                
+                // also reset the potentially highlighted group
+                proposedGroup = nil
                 
             })
             ) // gesture
@@ -341,7 +369,7 @@ func hideChildren(closedParent: ItemId,
     }
     
     var masterList = masterList
-    masterList.excludedChildren.updateValue(excludedChildren, forKey: closedParent)
+    masterList.excludedGroups.updateValue(excludedChildren, forKey: closedParent)
     masterList.items = itemsWithoutChildren
     return masterList
 }
@@ -355,7 +383,7 @@ func unhideChildren(openedParent: ItemId,
     
     // take items from
     
-    guard let excludedChildren = masterList.excludedChildren[openedParent] else {
+    guard let excludedChildren = masterList.excludedGroups[openedParent] else {
         fatalError("Attempted to open a parent that did not have excldued children")
     }
     
@@ -365,7 +393,7 @@ func unhideChildren(openedParent: ItemId,
     
     // remove the parent's entry,
     // now that you've retrieved the children
-    masterList.excludedChildren.removeValue(forKey: openedParent)
+    masterList.excludedGroups.removeValue(forKey: openedParent)
     
     for child in excludedChildren {
         log("unhideChildren: child.color: \(child.color)")
@@ -483,7 +511,7 @@ func retrieveItem(_ id: ItemId, _ items: RectItems) -> RectItem {
 // does this itemId have any children, whether excluded or included?
 func hasChildren(_ parentId: ItemId, _ masterList: MasterList) -> Bool {
     
-    if masterList.excludedChildren[parentId].isDefined {
+    if masterList.excludedGroups[parentId].isDefined {
         return true
     } else {
         return !childrenForParent(parentId: parentId, masterList.items).isEmpty
@@ -493,7 +521,7 @@ func hasChildren(_ parentId: ItemId, _ masterList: MasterList) -> Bool {
 
 func isGroupClosed(_ parentId: ItemId, _ master: MasterList) -> Bool {
     // if this item has excluded children, then it is closed
-    master.excludedChildren[parentId].isDefined
+    master.excludedGroups[parentId].isDefined
 }
 
 
@@ -613,39 +641,6 @@ func groupOpened(openedId: ItemId,
     
 }
 
-//
-//func groupOpened(openedId: ItemId,
-//                 _ masterList: MasterList) -> MasterList {
-//
-//    print("groupOpened called")
-////    fatalError()
-//
-////    var items: RectItems = masterList.items
-//
-//    let childrenCount = childrenForParent(
-//        parentId: openedId,
-//        masterList.items).count
-//
-//    let moveDownBy = childrenCount * VIEW_HEIGHT
-//
-//    // unhide the children; does not change count of item
-////    var items = unhideChildren(openedParent: openedId, items)
-//    masterList = unhideChildren(openedParent: openedId, masterList)
-//
-//    let parentItem = retrieveItem(openedId, masterList.items)
-//    let parentIndex = parentItem.itemIndex(masterList.items)
-//
-//    // will
-//    // and move any items below this parent DOWN
-//    items = adjustItemsBelow(
-//        parentIndex,
-//        adjustment: CGFloat(moveDownBy),
-//        masterList.items)
-//
-////    return items
-//
-//}
-
 
 // works!
 func getMovedtoIndex(item: RectItem,
@@ -685,7 +680,7 @@ func getMovedtoIndex(item: RectItem,
 func updatePositionsHelper(_ item: RectItem,
                            _ items: RectItems,
                            _ indicesToMove: [Int],
-                           _ translationHeight: CGFloat) -> (RectItems, [Int]) {
+                           _ translation: CGSize) -> (RectItems, [Int]) {
     
     print("updatePositionsHelper called")
     var item = item
@@ -702,7 +697,7 @@ func updatePositionsHelper(_ item: RectItem,
     
     // always update the item's position first:
     item.location = updatePosition(
-        translationHeight: translationHeight,
+        translation: translation,
         location: item.previousLocation)
     
     print("updatePositionsHelper: item.location is now: \(item.location)")
@@ -712,28 +707,21 @@ func updatePositionsHelper(_ item: RectItem,
     items[index] = item
     indicesToMove.append(index)
     
-//  ADD BACK LATER
     items.forEach { childItem in
         if let parentId = childItem.parentId,
-//            parentId == item.id {
            parentId == item.id,
            // don't update the item again, since you already did that
            childItem.id != item.id {
-
             let (newItems, newIndices) = updatePositionsHelper(
                 childItem,
                 items,
                 indicesToMove,
-                translationHeight)
-
-            // do I add all the newly updated items?
-            // or do I have to re-insert at the index?
-            //            items += newItems
+                translation)
+            
             for newItem in newItems {
                 let i = items.firstIndex { $0.id == newItem.id }!
                 items[i] = newItem
             }
-
             indicesToMove = newIndices
         }
     }
@@ -828,7 +816,7 @@ func maybeMoveIndices(_ items: RectItems,
 //        print("maybeMoveIndices: items AFTER move: \(items)")
         print("maybeMoveIndices: items by color AFTER move: \(items.map(\.color))")
         
-        items = setPositionsByIndices(items,
+        items = setYPositionByIndices(items,
                                       isDragEnded: false)
         
          print("maybeMoveIndices: items after position reset by indices: \(items)")
@@ -844,7 +832,7 @@ func maybeMoveIndices(_ items: RectItems,
 // maybe need to shift ALL items
 func onDragged(_ item: RectItem, // assumes we've already
                _ translation: CGSize,
-               _ items: [RectItem]) -> [RectItem] {
+               _ items: [RectItem]) -> (RectItems, ProposedGroup?) {
     
     print("onDragged called")
     var item = item
@@ -865,12 +853,11 @@ func onDragged(_ item: RectItem, // assumes we've already
     let (newItems, newIndices) = updatePositionsHelper(item,
                                                        items,
                                                        [],
-                                                       translation.height)
+                                                       translation)
     
     items = newItems
     item = items[originalItemIndex] // update the `item` too!
     var indicesofItemsToMove: [Int] = newIndices
-    
     
     print("onDragged: newItems: \(newItems)")
     print("onDragged: new item: \(item)")
@@ -886,50 +873,159 @@ func onDragged(_ item: RectItem, // assumes we've already
         maxIndex: items.count - 1)
 
     
-//    // if we moved down, we need to adjust the
-//    if calculatedIndex > originalItemIndex {
-//        let diff = calculatedIndex - originalItemIndex
-//        print("diff: \(diff)")
-//        calculatedIndex = calculatedIndex + diff
-//        print("calculatedIndex is now: \(calculatedIndex)")
-//        if calculatedIndex > (items.count - 1) {
-//            print("calculatedIndex was too large, will use max index instead")
-//            calculatedIndex = items.count - 1
-//        }
-//    }
-    
-    // ^^ you don't want to change which items you're MOVING
-    // you just want to update the newly calculated position
-
-    
     print("originalItemIndex: \(originalItemIndex)")
     print("calculatedIndex: \(calculatedIndex)")
 
-    return maybeMoveIndices(items,
-                            indicesMoved: indicesofItemsToMove,
-                            to: calculatedIndex,
-                            originalIndex: originalItemIndex)
+    items = maybeMoveIndices(items,
+                             indicesMoved: indicesofItemsToMove,
+                             to: calculatedIndex,
+                             originalIndex: originalItemIndex)
+    
+    //return items
+    
+    // move items, adjust indices etc.,
+    // THEN propose possible groups
+    
+    // have to retrieve the updated `item` from updated `items` again
+    
+    let updatedOriginalIndex = item.itemIndex(items)
+    item = items[updatedOriginalIndex]
+    
+    let proposed = proposedGroups(item, items)
+    
+    return (items, proposed)
+}
+
+
+func proposedGroups(_ item: RectItem, // the moved-item
+                    _ items: RectItems) -> ProposedGroup? {
+    
+    var proposed: ProposedGroup? = nil
+    
+    let movedItemIndex = item.itemIndex(items)
+    let itemsAbove = items.filter { $0.itemIndex(items) > movedItemIndex }
+    
+
+    for itemAbove in itemsAbove {
+        
+        // ie is this dragged item at, or east of, the above item?
+        if item.location.x >= itemAbove.location.x,
+           // ie only interested in items that are part of a group;
+           // otherwise we're just talking about a top level placement
+           itemAbove.parentId.isDefined {
+                proposed = ProposedGroup(
+                    parentId: itemAbove.parentId!,
+                    xIndentation: itemAbove.location.x)
+            log("proposedGroups: found proposed: \(proposed)")
+            log("proposedGroups: ... for itemAbove: \(itemAbove.id)")
+        }
+    }
+    // nil means only top level is possible
+    log("proposedGroups: final proposed: \(proposed)")
+    return proposed
+}
+
+
+func updateItem(_ item: RectItem, _ items: RectItems) -> RectItems {
+    let index = item.itemIndex(items)
+    var items = items
+    items[index] = item
+    return items
+}
+
+func moveItemIntoGroup(_ item: RectItem,
+                       _ items: RectItems,
+                       _ proposedGroup: ProposedGroup) -> RectItems {
+    var item = item
+    
+    item.parentId = proposedGroup.parentId
+    item.location.x = proposedGroup.xIndentation
+    
+    // update previousLocation too
+    item.previousLocation = item.location
+    
+    log("moveItemIntoGroup: item.location.x: \(item.location.x)")
+    return updateItem(item, items)
+}
+
+func moveItemToTopLevel(_ item: RectItem,
+                        _ items: RectItems) -> RectItems {
+    var item = item
+    
+    // top level items have no parent,
+    // and have x = 0 indentation
+    item.parentId = nil
+    item.location.x = 0
+    
+    // update previousLocation too
+    item.previousLocation = item.location
+    
+    log("moveItemToTopLevel: item.location.x: \(item.location.x)")
+    log("moveItemToTopLevel: item.parentId: \(item.parentId)")
+    return updateItem(item, items)
+}
+
+
+
+func onDragEnded(_ item: RectItem,
+                 _ items: RectItems,
+                 proposed: ProposedGroup?) -> RectItems {
+    
+    print("onDragEnded called")
+    var items = items
+    
+    // finalizes items' positions by index;
+    // also updates itemns' previousPositions.
+    items = setYPositionByIndices(items, isDragEnded: true)
+    print("onDragEnded: updated items: \(items)")
+    
+    // now that we've finalized the y-position of the items,
+    // we need to potentially:
+    // 1: add a parent id to the done-dragging item
+    // 2: adjust done-dragging item's x-indentation
+    // LATER?: also update an existing groups dict?
+    if let proposed = proposed {
+        log("onDragEnded: had proposed: \(proposed)")
+        let updatedItem = items.first { $0.id == item.id }!
+        items = moveItemIntoGroup(updatedItem,
+                                  items,
+                                  proposed)
+    }
+    
+    // if no proposed group, then we moved item to top level:
+    // 1. reset done-dragging item's x to `0`
+    // 2. set item's parent to nil
+    else {
+        log("onDragEnded: no proposed group")
+        let updatedItem = items.first { $0.id == item.id }!
+        items = moveItemToTopLevel(updatedItem, items)
+    }
+
+    print("onDragEnded: final items: \(items)")
+    return items
 }
 
 
 // when drag ends, we pop the views back into place via their indices
-func onDragEnded(_ item: RectItem, _ items: [RectItem]) -> [RectItem] {
-    print("onDragEnded called")
-    var items = items
-    // when you filter out the items, you remove them!
-    // you actually want to keep them around, you just don't want to touch them etc.
-//    items = nonHiddenItemsOnly(items)
-//    print("onDragEnded: items filtered to: \(items)")
-    items = setPositionsByIndices(items, isDragEnded: true)
-    print("onDragEnded: items is now: \(items)")
-    return items
-}
+//func onDragEnded(_ item: RectItem, _ items: [RectItem]) -> [RectItem] {
+//    print("onDragEnded called")
+//    var items = items
+//    // when you filter out the items, you remove them!
+//    // you actually want to keep them around, you just don't want to touch them etc.
+////    items = nonHiddenItemsOnly(items)
+////    print("onDragEnded: items filtered to: \(items)")
+//    items = setPositionsByIndices(items, isDragEnded: true)
+//    print("onDragEnded: items is now: \(items)")
+//    return items
+//}
 
-func updatePosition(translationHeight: CGFloat,
+
+
+func updatePosition(translation: CGSize,
                     // usually: previousPosition
                     location: CGPoint) -> CGPoint {
-    CGPoint(x: location.x,
-            y: translationHeight + location.y)
+    CGPoint(x: translation.width + location.x,
+            y: translation.height + location.y)
 }
 
 
@@ -944,7 +1040,7 @@ func updatePosition(translationHeight: CGFloat,
 // ie we've just REORDERED `items`,
 // and now want to set their heights according to the REORDERED items;
 // hence why we use `.enumerated`'s offsets, and not
-func setPositionsByIndices(_ items: RectItems,
+func setYPositionByIndices(_ items: RectItems,
                            isDragEnded: Bool = false,
                            _ viewHeight: Int = 100) -> RectItems {
 
@@ -954,15 +1050,16 @@ func setPositionsByIndices(_ items: RectItems,
 //        let newLocation = CGPoint(x: 0,
         var item = item
         let newY = CGFloat(offset * viewHeight)
-        print("setPositionsByIndices: item: \(item)")
-        print("setPositionsByIndices: newY: \(newY)")
+        print("setYPositionByIndices: item: \(item)")
+        print("setYPositionByIndices: newY: \(newY)")
         
+        // Setting position by indices NEVER changes x location
         let newLocation = CGPoint(x: item.location.x,
 //                                  y: CGFloat(offset * viewHeight))
                                   y: newY)
         item.location = newLocation
         if isDragEnded {
-            print("setPositionsByIndices: drag ended, so resetting previous position")
+            print("setYPositionByIndices: drag ended, so resetting previous position")
             item.previousLocation = newLocation
         }
         return item
@@ -983,13 +1080,21 @@ struct ContentView: View {
     // nil when we're not dragging anything
     @State var current: ItemId? = nil
     
+//    @State var proposedGroups: ItemIds = []
+    
+    // nil = top level proposed
+    // non-nil = deepested nested group possible to join,
+    // based on dragged-item's current x position
+    @State var proposedGroup: ProposedGroup? = nil
+    
     var body: some View {
         
         ZStack {
             ForEach(masterList.items, id: \.id.value) { (d: RectItem) in
                 RectView2(item: d,
                           masterList: $masterList,
-                          current: $current)
+                          current: $current,
+                          proposedGroup: $proposedGroup)
                     .zIndex(Double(d.zIndex))
             } // ForEach
         } // ZStack
@@ -1070,30 +1175,3 @@ let sampleColors3: [MyColor] = [
     ]),
     MyColor(color: .green)
 ]
-
-
-// CustomDG
-//struct CustomDisclosureView: View {
-//
-//    let parent: RectItem
-//    let children: RectItems
-//
-//    // ALL items, "the master list"; includes `parent` and `children`
-//    @Binding var items: RectItems
-//
-//    @State var isExpanded = true
-//
-//    var body: some View {
-//        ZStack {
-//            RectView2(item: parent, items: $items)
-//            if isExpanded {
-//                ForEach(children, id: \.id) { (child: RectItem) in
-//                    RectView2(item: child, items: $items)
-//                }
-//            } // isExpanded
-//
-//        } // ZStack
-//        .animation(.default)
-//    }
-//}
-
