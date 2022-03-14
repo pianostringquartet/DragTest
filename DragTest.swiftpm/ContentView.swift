@@ -960,7 +960,7 @@ func findDeepestParent(_ item: RectItem, // the moved-item
                        _ items: RectItems) -> ProposedGroup? {
     
     var proposed: ProposedGroup? = nil
-    
+        
     for itemAbove in getItemsAbove(item, items) {
         // ie is this dragged item at, or east of, the above item?
         if item.location.x >= itemAbove.location.x,
@@ -979,10 +979,24 @@ func findDeepestParent(_ item: RectItem, // the moved-item
 }
 
 
+func blockedByTopLevelItemImmediatelyAbove(_ item: RectItem,
+                                           _ items: RectItems) -> Bool {
+    let index = item.itemIndex(items)
+    if let immediatelyAbove = items[safeIndex: index - 1],
+       !immediatelyAbove.parentId.isDefined {
+        log("blocked by top level item immediately above")
+        return true
+    }
+    return false
+}
+
+
 func proposedGroups(_ item: RectItem, // the moved-item
                     _ items: RectItems) -> ProposedGroup? {
     
-    if let proposed = groupFromChildBelow(item, items) {
+    if blockedByTopLevelItemImmediatelyAbove(item, items) {
+        return nil
+    } else if let proposed = groupFromChildBelow(item, items) {
         return proposed
     } else if let proposed = findDeepestParent(item, items) {
         return proposed
