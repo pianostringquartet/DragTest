@@ -76,8 +76,8 @@ func itemsFromColors(_ colors: [MyColor],
 //}
 
 // not needed?
-func buildGroupsFromItems(_ items: RectItems) -> ItemGroups {
-    var groupsDict = ItemGroups()
+func buildGroupsFromItems(_ items: RectItems) -> ExcludedGroups {
+    var groupsDict = ExcludedGroups()
     for item in items {
         // any items that have parentId = this item's id
         let children = items.filter { ($0.parentId ?? nil) == item.id }
@@ -138,19 +138,19 @@ func itemsFromColorHelper(_ color: MyColor,
 
 
 // parentId: [children in order]
-typealias ItemGroups = [ItemId: RectItems]
+typealias ExcludedGroups = [ItemId: RectItems]
 // ^^ needs to be full child, since needs to preserve color etc.;
 // note that full child's location will be updated when adding back into `items` list
 
 struct MasterList: Equatable {
     var items: RectItems
     // the [parentId: child-ids] that are not currently shown
-    var excludedGroups: ItemGroups
+    var excludedGroups: ExcludedGroups
     
     // groups currently shown
 //    var visibleGroups: ItemGroups
     
-    init(_ items: RectItems, _ groups: ItemGroups) {
+    init(_ items: RectItems, _ groups: ExcludedGroups) {
         self.items = items
         self.excludedGroups = groups
     }
@@ -159,8 +159,16 @@ struct MasterList: Equatable {
     static func fromColors(_ colors: [MyColor]) -> MasterList {
         let items = itemsFromColors(colors, VIEW_HEIGHT)
     //    let groups = buildGroupsFromItems(items)
-        let groups = ItemGroups()
+        let groups = ExcludedGroups()
         return MasterList(items, groups)
+    }
+    
+    func appendToExcludedGroup(for key: ItemId, _ newItem: RectItem) -> MasterList {
+        var masterList = self
+        var existing: RectItems = masterList.excludedGroups[key] ?? []
+        existing.append(newItem)
+        masterList.excludedGroups.updateValue(existing, forKey: key)
+        return masterList
     }
 }
 
@@ -223,6 +231,10 @@ struct RectItem: Equatable {
         // does "firstIndex(of: self) vs. of $0.id == thisItem.id matter?
 //        items.firstIndex(of: self)!
         items.firstIndex { $0.id == self.id }!
+    }
+    
+    var indentationLevel: IndentationLevel {
+        IndentationLevel.fromXLocation(x: self.location.x)
     }
     
     
@@ -366,69 +378,330 @@ struct RectView2: View {
 
 typealias ItemIds = [ItemId]
 typealias Items = RectItems
+//
+//func hideChildren(closedParent: ItemId,
+//                  _ masterList: MasterList) -> MasterList {
+//
+//    var itemsWithoutChildren = masterList.items
+//    var excludedChildren = Items()
+//
+//    // this doesn't work for nested groups,
+//    // because nested group's child will have a different parent
+//    for item in masterList.items {
+//        if item.parentId == closedParent {
+//            excludedChildren.append(item)
+//            itemsWithoutChildren.removeAll { $0.id == item.id }
+//        }
+//    }
+//
+//    var masterList = masterList
+//    masterList.excludedGroups.updateValue(excludedChildren, forKey: closedParent)
+//    masterList.items = itemsWithoutChildren
+//    return masterList
+//}
 
-func hideChildren(closedParent: ItemId,
-                  _ masterList: MasterList) -> MasterList {
+
+let INDENTATION_LEVEL: Int = VIEW_HEIGHT / 2
+
+struct IndentationLevel: Equatable {
+    let value: Int
     
-    var itemsWithoutChildren = masterList.items
-    var excludedChildren = Items()
-    
-    for item in masterList.items {
-        if item.parentId == closedParent {
-            excludedChildren.append(item)
-            itemsWithoutChildren.removeAll { $0.id == item.id }
-        }
+    init(_ value: Int) {
+        self.value = value
     }
     
+    func inc() -> IndentationLevel {
+        IndentationLevel(self.value + 1)
+    }
+    
+    func dec() -> IndentationLevel {
+        IndentationLevel(self.value - 1)
+    }
+    
+    static func fromXLocation(x: CGFloat) -> IndentationLevel {
+        IndentationLevel(Int(x / CGFloat(INDENTATION_LEVEL)))
+    }
+}
+
+
+
+
+// ie ALL the children, even if eg their parentId is not the same as closed parent id;
+// ie any items below this parent with an indentation level GT parent's identation
+func getDescendants(_ parentXLocation: CGFloat, _ items: RectItems) -> RectItems {
+    items.filter { $0.location.x > parentXLocation }
+}
+
+
+// if "parent" does not have an iimte
+// Better?: `!getDescendents.isEmpty`
+func hasOpenChildren(_ item: RectItem, _ items: RectItems) -> Bool {
+    
+    let parentIndex = item.itemIndex(items)
+    let nextChildIndex = parentIndex + 1
+    
+    if let child = items[safeIndex: nextChildIndex],
+       let childParent = child.parentId,
+       childParent == item.id {
+        return true
+    }
+    return false
+}
+
+
+// only called if parent
+func hideChildren(closedParentId: ItemId,
+                  _ masterList: MasterList) -> MasterList {
+
     var masterList = masterList
-    masterList.excludedGroups.updateValue(excludedChildren, forKey: closedParent)
-    masterList.items = itemsWithoutChildren
+    
+    let closedParent = retrieveItem(closedParentId, masterList.items)
+    let descendants = getDescendants(closedParent.location.x, masterList.items)
+            
+    // starting: immediate parent will have closed parent's id
+    var currentParent: ItemId = closedParentId
+    
+    // starting: immediate child of parent will have parent's indentation level + 1
+    var currentDeepestIndentation = closedParent.indentationLevel.inc()
+    
+    // all the items below this parent, with indentation > parent's
+    for descendant in descendants {
+        log("on descendant: \(descendant)")
+        
+        if descendant.indentationLevel == currentDeepestIndentation {
+            masterList = masterList.appendToExcludedGroup(
+                for: currentParent, descendant)
+        }
+        
+        // we went down one more level, so it's a new group;
+        // so we save what we have so far, and then create a new group in excludedGroups
+        else if descendant.indentationLevel.value > currentDeepestIndentation.value {
+                
+            currentParent = descendant.parentId!
+            currentDeepestIndentation = descendant.indentationLevel
+            
+            masterList = masterList.appendToExcludedGroup(
+                for: currentParent, descendant)
+        } else {
+            // something went wrong; should not encounter an indentation level higher than what we start with
+            fatalError()
+        }
+    }
+
+    // finally, remove descendants from items list
+    let descendentsIdSet: Set<ItemId> = Set(descendants.map(\.id))
+    
+    masterList.items.removeAll { descendentsIdSet.contains($0.id) }
+
+    log("hideChildren: masterList is now: \(masterList)")
+    
     return masterList
 }
 
-// want to get the child items,
-// but also need to update their positions
+
+// retrieve children
+// nil = parentId had no
+// non-nil = returning children, plus removing the parentId entry from ExcludedGroups
+func popExcludedChildren(parentId: ItemId,
+                         _ masterList: MasterList) -> (RectItems, ExcludedGroups)? {
+
+    if let excludedChildren = masterList.excludedGroups[parentId] {
+        var groups = masterList.excludedGroups
+        groups.removeValue(forKey: parentId)
+        return (excludedChildren, groups)
+    }
+    return nil
+}
+
+//
+//func crawl(_ parent: RectItem,
+////           _ children: RectItems, // immediatge children of this parent
+//           _ height: CGFloat, // height of item immediately above
+//
+//           // ALL items
+//           _ masterList: MasterList) -> MasterList {
+//
+//    var masterList = masterList
+//
+//    if let (excludedChildren, updatedMaster) = popExcludedChildren(parentId: parent.id, masterList) {
+//        masterList = updatedMaster
+//        for child
+//
+//    }
+//
+//    for child in children {
+//    }
+//}
+
+func setOpenedChildHeight(_ item: RectItem,
+                          _ height: CGFloat) -> RectItem {
+    var item = item
+    // set height only; preserve indentation
+    item.location = CGPoint(x: item.location.x, y: height)
+    item.previousLocation = item.location
+    return item
+}
+
+func unhideChildrenHelper(item: RectItem, // item that could be a parent or not
+                          currentHighestIndex: Int, // starts: opened parent's index
+                          currentHighestHeight: CGFloat, // starts: opened parent's height
+                          _ masterList: MasterList) -> (MasterList, Int, CGFloat) {
+    
+    var masterList = masterList
+    var currentHighestIndex = currentHighestIndex
+    var currentHighestHeight = currentHighestHeight
+    
+    log("unhideChildrenHelper: item was: \(item.id), \(item.color)")
+//    log("unhideChildrenHelper: currentHighestIndex was: \(currentHighestIndex)")
+//    log("unhideChildrenHelper: currentHighestHeight was: \(currentHighestHeight)")
+    
+    // first, insert the item
+    // then, recur on any children
+
+    
+    // insert item
+    let (updatedMaster,
+         updatedHighestIndex,
+         updatedHighestHeight) = insertUnhiddenItem(item: item,
+                       currentHighestIndex: currentHighestIndex,
+                       currentHighestHeight: currentHighestHeight,
+                       masterList)
+    
+    masterList = updatedMaster
+    currentHighestIndex = updatedHighestIndex
+    currentHighestHeight = updatedHighestHeight
+    
+    // does this `item` have itemren of its own?
+    // if so, recur
+    if let (excludedChildren, updatedGroups) = popExcludedChildren(
+        parentId: item.id, masterList) {
+        
+        log("unhideChildrenHelper: had children")
+        
+        masterList.excludedGroups = updatedGroups
+                
+        // excluded children must be handled in IN ORDER
+        for child in excludedChildren {
+            log("unhideChildrenHelper: on child \(child.id) of item \(item.id)")
+            let (updatedMaster,
+                 updatedHighestIndex,
+                 updatedHighestHeight) = unhideChildrenHelper(
+                    item: child,
+                    currentHighestIndex: currentHighestIndex,
+                    currentHighestHeight: currentHighestHeight,
+                    masterList)
+            
+            masterList = updatedMaster
+            currentHighestIndex = updatedHighestIndex
+            currentHighestHeight = updatedHighestHeight
+        }
+    }
+    
+    return (masterList, currentHighestIndex, currentHighestHeight)
+}
+
+
+func insertUnhiddenItem(item: RectItem, // item that could be a parent or not
+                        currentHighestIndex: Int, // starts: opened parent's index
+                        currentHighestHeight: CGFloat, // starts: opened parent's height
+                        _ masterList: MasterList) -> (MasterList, Int, CGFloat) {
+    
+//    log("unhideChildrenHelper: on child-less item \(item.id), color \(item.color)")
+    
+    log("insertUnhiddenItem: currentHighestIndex was: \(currentHighestIndex)")
+    log("insertUnhiddenItem: currentHighestHeight was: \(currentHighestHeight)")
+    
+    var item = item
+    var currentHighestIndex = currentHighestIndex
+    var currentHighestHeight = currentHighestHeight
+    var masterList = masterList
+    
+    // + 1 so inserted AFTER previous currentHighestIndex
+    currentHighestIndex += 1
+    currentHighestHeight += CGFloat(VIEW_HEIGHT)
+    log("insertUnhiddenItem: currentHighestIndex is now: \(currentHighestIndex)")
+    log("insertUnhiddenItem: currentHighestHeight is now: \(currentHighestHeight)")
+    
+    item = setOpenedChildHeight(item, currentHighestHeight)
+      
+    log("insertUnhiddenItem: masterList.items colors were: \(masterList.items.map(\.color))")
+    
+    masterList.items.insert(item, at: currentHighestIndex)
+    
+    log("insertUnhiddenItem: masterList.items colors are now: \(masterList.items.map(\.color))")
+    
+    return (masterList, currentHighestIndex, currentHighestHeight)
+}
+
+
+// returns (masterList, lastIndexOfAddedReAdded)
 func unhideChildren(openedParent: ItemId,
                     parentIndex: Int,
                     parentY: CGFloat,
-                    _ masterList: MasterList) -> MasterList {
-    
-    // take items from
+                    _ masterList: MasterList) -> (MasterList, Int) {
     
     guard let excludedChildren = masterList.excludedGroups[openedParent] else {
-        fatalError("Attempted to open a parent that did not have excldued children")
+        fatalError("Attempted to open a parent that did not have excluded children")
     }
     
     log("unhideChildren: parentIndex: \(parentIndex)")
     
-    var masterList = masterList
+    let parent = retrieveItem(openedParent, masterList.items)
     
-    // remove the parent's entry,
-    // now that you've retrieved the children
-    masterList.excludedGroups.removeValue(forKey: openedParent)
+    let (updatedMaster, lastIndex, _) = unhideChildrenHelper(
+        item: parent,
+        currentHighestIndex: parent.itemIndex(masterList.items),
+        currentHighestHeight: parent.location.y,
+        masterList)
     
-    for child in excludedChildren {
-        log("unhideChildren: child.color: \(child.color)")
-        var child = child
-        // the child's relative index in its own group
-        // ... + 1
-        // since parentY + 0 would just be parent's y again!
-        let relativeIndex = excludedChildren.firstIndex(of: child)! + 1
-        let childY = parentY + CGFloat(relativeIndex * VIEW_HEIGHT)
-        log("unhideChildren: childY: \(childY)")
-        child.location = CGPoint(x: child.location.x,
-                                 y: childY)
-        child.previousLocation = child.location
-        // does this insert ON, or AFTER, the parent ?
-        log("unhideChildren: masterList.items colors were: \(masterList.items.map(\.color))")
-//        masterList.items.insert(child, at: parentIndex)
-        // parentIndex + 1, so that child is inserted after the parent
-        masterList.items.insert(child, at: parentIndex + 1)
-        log("unhideChildren: masterList.items colors were: \(masterList.items.map(\.color))")
-    }
+    return (updatedMaster, lastIndex)
     
-    return masterList
 }
+
+
+// want to get the child items,
+// but also need to update their positions
+//func unhideChildren(openedParent: ItemId,
+//                    parentIndex: Int,
+//                    parentY: CGFloat,
+//                    _ masterList: MasterList) -> MasterList {
+//
+//    // take items from
+//
+//    guard let excludedChildren = masterList.excludedGroups[openedParent] else {
+//        fatalError("Attempted to open a parent that did not have excldued children")
+//    }
+//
+//    log("unhideChildren: parentIndex: \(parentIndex)")
+//
+//    var masterList = masterList
+//
+//    // remove the parent's entry,
+//    // now that you've retrieved the children
+//    masterList.excludedGroups.removeValue(forKey: openedParent)
+//
+//    for child in excludedChildren {
+//        log("unhideChildren: child.color: \(child.color)")
+//        var child = child
+//        // the child's relative index in its own group
+//        // ... + 1
+//        // since parentY + 0 would just be parent's y again!
+//        let relativeIndex = excludedChildren.firstIndex(of: child)! + 1
+//        let childY = parentY + CGFloat(relativeIndex * VIEW_HEIGHT)
+//        log("unhideChildren: childY: \(childY)")
+//        child.location = CGPoint(x: child.location.x,
+//                                 y: childY)
+//        child.previousLocation = child.location
+//        // does this insert ON, or AFTER, the parent ?
+//        log("unhideChildren: masterList.items colors were: \(masterList.items.map(\.color))")
+////        masterList.items.insert(child, at: parentIndex)
+//        // parentIndex + 1, so that child is inserted after the parent
+//        masterList.items.insert(child, at: parentIndex + 1)
+//        log("unhideChildren: masterList.items colors were: \(masterList.items.map(\.color))")
+//    }
+//
+//    return masterList
+//}
 
 // all children, closed or open
 func childrenForParent(parentId: ItemId,
@@ -455,10 +728,14 @@ func childrenForParent(parentId: ItemId,
 
 let VIEW_HEIGHT: Int = 100
 
+// is this really correct for nested groups that have been re-opened?
+
+// for should pass in not parentIndex, but index of LAST INSERTED CHILD
+
 func adjustItemsBelow(_ parentId: ItemId,
                       _ parentIndex: Int, // parent that was opened or closed
-                       adjustment: CGFloat, // down = +y; up = -y
-                       _ items: RectItems) -> RectItems {
+                      adjustment: CGFloat, // down = +y; up = -y
+                      _ items: RectItems) -> RectItems {
     
 //    let parentIndex = parentItem.itemIndex(items)
     
@@ -485,6 +762,24 @@ func adjustItemsBelow(_ parentId: ItemId,
         }
     }
 }
+
+func adjustNonDescendantsBelow(_ lastIndex: Int, // the last item
+                               adjustment: CGFloat, // down = +y; up = -y
+                               _ items: RectItems) -> RectItems {
+    
+    return items.map { item in
+        if item.itemIndex(items) > lastIndex {
+            var item = item
+            item.location = CGPoint(x: item.location.x,
+                                    y: item.location.y + adjustment)
+            item.previousLocation = item.location
+            return item
+        } else {
+            return item
+        }
+    }
+}
+
 
 func log(_ string: String) {
     print(string)
@@ -546,27 +841,43 @@ func groupClosed(closedId: ItemId,
                  _ masterList: MasterList) -> MasterList {
     print("groupClosed called")
     
-    let childrenCount = childrenForParent(
-        parentId: closedId,
+    let closedParent = retrieveItem(closedId, masterList.items)
+    
+    if !hasOpenChildren(closedParent, masterList.items) {
+        log("groupClosed: \(closedId) had no children; exiting early")
+        return masterList
+    }
+    
+    
+//    let childrenCount = childrenForParent(
+//        parentId: closedId,
+//        masterList.items).count
+    
+    let descendantsCount = getDescendants(
+        closedParent.location.x,
         masterList.items).count
     
-    let moveUpBy = childrenCount * VIEW_HEIGHT
+    let moveUpBy = descendantsCount * VIEW_HEIGHT
     
     var masterList = masterList
     
-    // hide the children; does not change count of item
-//    items = hideChildren(closedParent: closedId, items)
-    masterList = hideChildren(closedParent: closedId,
+    // hide the children:
+    // - populates ExcludedGroups
+    // - removes now-hidden descendants from `items`
+    masterList = hideChildren(closedParentId: closedId,
                               masterList)
     
-    // should still be able to find parent
-    let parentItem = retrieveItem(closedId, masterList.items)
-    let parentIndex = parentItem.itemIndex(masterList.items)
+    // ... technically... parent's own index should not have changed if we only removed or changed items AFTER its index
+//    let parentItem = retrieveItem(closedId, masterList.items)
+//    let parentIndex = parentItem.itemIndex(masterList.items)
     
     // and move any items below this parent upward
+
     masterList.items = adjustItemsBelow(
-        parentItem.id,
-        parentIndex,
+//        parentItem.id,
+//        parentIndex,
+        closedParent.id,
+        closedParent.itemIndex(masterList.items),
         adjustment: -CGFloat(moveUpBy),
         masterList.items)
     // ^^ removing the children from here should not matter, because it does not change the fact that items below parent are still below the parent
@@ -607,7 +918,6 @@ func groupClosed(closedId: ItemId,
 //}
 
 
-//func groupOpened(openedId: ItemId, _ items: RectItems) -> RectItems {
 
 // When group opened:
 // - move parent's children from ExcludedGroups to Items
@@ -623,35 +933,88 @@ func groupOpened(openedId: ItemId,
     let parentItem = retrieveItem(openedId, masterList.items)
     let parentIndex = parentItem.itemIndex(masterList.items)
     
-    masterList = unhideChildren(openedParent: openedId,
-                                parentIndex: parentIndex,
-                                parentY: parentItem.location.y,
-                                masterList)
+    //
+    let originalCount = masterList.items.count
+    
+    let (updatedMaster, lastIndex) = unhideChildren(
+        openedParent: openedId,
+        parentIndex: parentIndex,
+        parentY: parentItem.location.y,
+        masterList)
+    
+    masterList = updatedMaster
 
-    // do this AFTER we've added the children back to `items`
-    let childrenCount = childrenForParent(
-        parentId: openedId,
-        masterList.items).count
-
-    let moveDownBy = childrenCount * VIEW_HEIGHT
+//    // do this AFTER we've added the children back to `items`
+//    let childrenCount = childrenForParent(
+//        parentId: openedId,
+//        masterList.items).count
+//    let moveDownBy = childrenCount * VIEW_HEIGHT
     
-//    let parentItem = retrieveItem(openedId, masterList.items)
-//    let parentIndex = parentItem.itemIndex(masterList.items)
     
-    // will this need to change?
+    // count after adding hidden descendants back to `items`
+    let updatedCount = masterList.items.count
     
+    // how many items total we added by unhiding the parent's children
+    let addedCount = updatedCount - originalCount
+    
+    let moveDownBy = addedCount * VIEW_HEIGHT
+        
     // and move any items below this parent DOWN
     // ... but skip any children, since their positions' have already been udpated
-    masterList.items = adjustItemsBelow(
-        parentItem.id,
-        parentIndex,
-        adjustment: CGFloat(moveDownBy),
-        masterList.items)
     
-//    return items
+    // should not need this now?
+    // ... no, still required for those items that we didn't
+//    masterList.items = adjustItemsBelow(
+//        parentItem.id,
+//        parentIndex,
+//        adjustment: CGFloat(moveDownBy),
+//        masterList.items)
+    
+    masterList.items = adjustNonDescendantsBelow(lastIndex,
+                                                 adjustment: CGFloat(moveDownBy),
+                                                 masterList.items)
+    
     return masterList
-    
 }
+
+
+//func groupOpened(openedId: ItemId,
+//                 _ masterList: MasterList) -> MasterList {
+//
+//    print("groupOpened called")
+//
+//    var masterList = masterList
+//
+//    let parentItem = retrieveItem(openedId, masterList.items)
+//    let parentIndex = parentItem.itemIndex(masterList.items)
+//
+//    masterList = unhideChildren(openedParent: openedId,
+//                                parentIndex: parentIndex,
+//                                parentY: parentItem.location.y,
+//                                masterList)
+//
+//    // do this AFTER we've added the children back to `items`
+//    let childrenCount = childrenForParent(
+//        parentId: openedId,
+//        masterList.items).count
+//
+//    let moveDownBy = childrenCount * VIEW_HEIGHT
+//
+////    let parentItem = retrieveItem(openedId, masterList.items)
+////    let parentIndex = parentItem.itemIndex(masterList.items)
+//
+//    // will this need to change?
+//
+//    // and move any items below this parent DOWN
+//    // ... but skip any children, since their positions' have already been udpated
+//    masterList.items = adjustItemsBelow(
+//        parentItem.id,
+//        parentIndex,
+//        adjustment: CGFloat(moveDownBy),
+//        masterList.items)
+//
+//    return masterList
+//}
 
 
 // works!
