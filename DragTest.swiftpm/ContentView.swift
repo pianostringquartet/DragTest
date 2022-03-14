@@ -545,7 +545,8 @@ func setOpenedChildHeight(_ item: RectItem,
 func unhideChildrenHelper(item: RectItem, // item that could be a parent or not
                           currentHighestIndex: Int, // starts: opened parent's index
                           currentHighestHeight: CGFloat, // starts: opened parent's height
-                          _ masterList: MasterList) -> (MasterList, Int, CGFloat) {
+                          _ masterList: MasterList,
+                          isRoot: Bool) -> (MasterList, Int, CGFloat) {
     
     var masterList = masterList
     var currentHighestIndex = currentHighestIndex
@@ -560,16 +561,20 @@ func unhideChildrenHelper(item: RectItem, // item that could be a parent or not
 
     
     // insert item
-    let (updatedMaster,
-         updatedHighestIndex,
-         updatedHighestHeight) = insertUnhiddenItem(item: item,
-                       currentHighestIndex: currentHighestIndex,
-                       currentHighestHeight: currentHighestHeight,
-                       masterList)
-    
-    masterList = updatedMaster
-    currentHighestIndex = updatedHighestIndex
-    currentHighestHeight = updatedHighestHeight
+    if !isRoot {
+        let (updatedMaster,
+             updatedHighestIndex,
+             updatedHighestHeight) = insertUnhiddenItem(item: item,
+                           currentHighestIndex: currentHighestIndex,
+                           currentHighestHeight: currentHighestHeight,
+                           masterList)
+        
+        masterList = updatedMaster
+        currentHighestIndex = updatedHighestIndex
+        currentHighestHeight = updatedHighestHeight
+    } else {
+        log("unhideChildrenHelper: had root item \(item.id), so will not add root item again")
+    }
     
     // does this `item` have itemren of its own?
     // if so, recur
@@ -589,7 +594,8 @@ func unhideChildrenHelper(item: RectItem, // item that could be a parent or not
                     item: child,
                     currentHighestIndex: currentHighestIndex,
                     currentHighestHeight: currentHighestHeight,
-                    masterList)
+                    masterList,
+                    isRoot: false)
             
             masterList = updatedMaster
             currentHighestIndex = updatedHighestIndex
@@ -648,11 +654,13 @@ func unhideChildren(openedParent: ItemId,
     
     let parent = retrieveItem(openedParent, masterList.items)
     
+    // if you start with the parent, you double add it
     let (updatedMaster, lastIndex, _) = unhideChildrenHelper(
         item: parent,
         currentHighestIndex: parent.itemIndex(masterList.items),
         currentHighestHeight: parent.location.y,
-        masterList)
+        masterList,
+        isRoot: true)
     
     return (updatedMaster, lastIndex)
     
