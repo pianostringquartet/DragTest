@@ -4,6 +4,18 @@ let rectHeight: CGFloat = 100
 let rectWidth: CGFloat = 400
 
 
+// for safe indexing
+extension Array {
+    public subscript(safeIndex index: Int) -> Element? {
+        guard index >= 0, index < endIndex else {
+            return nil
+        }
+
+        return self[index]
+    }
+}
+
+
 
 // if nil, then the 'proposed group' is top level
 // and xIdentation = 0
@@ -246,12 +258,12 @@ struct RectView2: View {
         
         let isBeingDraggedColor: Color = (current.map { $0 == item.id } ?? false) ? .white : .clear
         
-        let isProposedGroupColor: Color = (proposedGroup?.parentId == item.id) ? .cyan : .clear
+        let isProposedGroupColor: Color = (proposedGroup?.parentId == item.id) ? .white : .clear
         
         return Rectangle().fill(item.color)
             .border(isBeingDraggedColor, width: 16)
 //            .border(isProposedGroupColor, width: 8)
-            .overlay(isProposedGroupColor.opacity(0.5))
+            .overlay(isProposedGroupColor.opacity(0.8))
             .frame(width: rectWidth, height: rectHeight)
             .overlay(
                 HStack {
@@ -897,17 +909,59 @@ func onDragged(_ item: RectItem, // assumes we've already
 }
 
 
-func proposedGroups(_ item: RectItem, // the moved-item
-                    _ items: RectItems) -> ProposedGroup? {
+// grab the first, immediately above parent;
+// furthermore, try to grab
+// grab the most specific (ie deeply indented) parent as possible;
+
+// if a dragged-item has an item below it with a non-nil parent id,
+// then dragged-item sits in the middle of a group and we MUST use that group
+func groupFromChildBelow(_ item: RectItem,
+                         _ items: RectItems) -> ProposedGroup? {
+    
+    let movedItemIndex = item.itemIndex(items)
+    let indexBelow: Int = movedItemIndex + 1
+    
+    if let itemBelow = items[safeIndex: indexBelow],
+       itemBelow.parentId.isDefined {
+        log("groupFromChildBelow: found child below")
+        return ProposedGroup(parentId: itemBelow.parentId!,
+                             xIndentation: itemBelow.location.x)
+    } else {
+        log("groupFromChildBelow: no child below")
+        return nil
+    }
+}
+
+// the default parent
+//func parentImmediatelyAbove(_ item: RectItem,
+//                            _ items: RectItems) -> ProposedGroup? {
+//
+//
+//}
+
+
+func getItemsBelow(_ item: RectItem, _ items: RectItems) -> RectItems {
+    let movedItemIndex = item.itemIndex(items)
+    // eg if movedItem's index is 5,
+    // then items below have indices 6, 7, 8, ...
+    return items.filter { $0.itemIndex(items) > movedItemIndex }
+}
+
+func getItemsAbove(_ item: RectItem, _ items: RectItems) -> RectItems {
+    let movedItemIndex = item.itemIndex(items)
+    // eg if movedItem's index is 5,
+    // then items above have indices 4, 3, 2, ...
+    return items.filter { $0.itemIndex(items) < movedItemIndex }
+}
+
+// are we moved East enough to align with a child above us?
+// if so, use that child's indentation level and parentId
+func findDeepestParent(_ item: RectItem, // the moved-item
+                       _ items: RectItems) -> ProposedGroup? {
     
     var proposed: ProposedGroup? = nil
     
-    let movedItemIndex = item.itemIndex(items)
-    let itemsAbove = items.filter { $0.itemIndex(items) > movedItemIndex }
-    
-
-    for itemAbove in itemsAbove {
-        
+    for itemAbove in getItemsAbove(item, items) {
         // ie is this dragged item at, or east of, the above item?
         if item.location.x >= itemAbove.location.x,
            // ie only interested in items that are part of a group;
@@ -916,14 +970,57 @@ func proposedGroups(_ item: RectItem, // the moved-item
                 proposed = ProposedGroup(
                     parentId: itemAbove.parentId!,
                     xIndentation: itemAbove.location.x)
-            log("proposedGroups: found proposed: \(proposed)")
-            log("proposedGroups: ... for itemAbove: \(itemAbove.id)")
+            log("findDeepestParent: found proposed: \(proposed)")
+            log("findDeepestParent: ... for itemAbove: \(itemAbove.id)")
         }
     }
-    // nil means only top level is possible
-    log("proposedGroups: final proposed: \(proposed)")
+    log("findDeepestParent: final proposed: \(proposed)")
     return proposed
 }
+
+
+func proposedGroups(_ item: RectItem, // the moved-item
+                    _ items: RectItems) -> ProposedGroup? {
+    
+    if let proposed = groupFromChildBelow(item, items) {
+        return proposed
+    } else if let proposed = findDeepestParent(item, items) {
+        return proposed
+    } else {
+        log("no suggested group for item \(item.id), color: \(item.color)")
+        return nil
+    }
+}
+
+
+// ORIGINAL
+//func proposedGroups(_ item: RectItem, // the moved-item
+//                    _ items: RectItems) -> ProposedGroup? {
+//
+//    var proposed: ProposedGroup? = nil
+//
+//    let movedItemIndex = item.itemIndex(items)
+//    let itemsAbove = items.filter { $0.itemIndex(items) > movedItemIndex }
+//
+//
+//    for itemAbove in itemsAbove {
+//
+//        // ie is this dragged item at, or east of, the above item?
+//        if item.location.x >= itemAbove.location.x,
+//           // ie only interested in items that are part of a group;
+//           // otherwise we're just talking about a top level placement
+//           itemAbove.parentId.isDefined {
+//                proposed = ProposedGroup(
+//                    parentId: itemAbove.parentId!,
+//                    xIndentation: itemAbove.location.x)
+//            log("proposedGroups: found proposed: \(proposed)")
+//            log("proposedGroups: ... for itemAbove: \(itemAbove.id)")
+//        }
+//    }
+//    // nil means only top level is possible
+//    log("proposedGroups: final proposed: \(proposed)")
+//    return proposed
+//}
 
 
 func updateItem(_ item: RectItem, _ items: RectItems) -> RectItems {
@@ -1024,8 +1121,19 @@ func onDragEnded(_ item: RectItem,
 func updatePosition(translation: CGSize,
                     // usually: previousPosition
                     location: CGPoint) -> CGPoint {
-    CGPoint(x: translation.width + location.x,
-            y: translation.height + location.y)
+    
+    
+    var adjustedX = translation.width + location.x
+    
+    // we can ever go West; can only drag East
+    if adjustedX < 0 {
+        log("updatePosition: tried to drag West; will correct to x = 0")
+        adjustedX = 0
+    }
+    
+//    CGPoint(x: translation.width + location.x,
+    return CGPoint(x: adjustedX,
+                   y: translation.height + location.y)
 }
 
 
@@ -1066,21 +1174,22 @@ func setYPositionByIndices(_ items: RectItems,
     }
 }
 
-struct ContentView: View {
-    
-    @State private var masterList = MasterList.fromColors(
+func generateData() -> MasterList {
+    MasterList.fromColors(
         //        sampleColors0
-                sampleColors1
-//                sampleColors2
+//                sampleColors1
+                sampleColors2
         //        sampleColors3
     )
+}
+
+struct ContentView: View {
     
+    @State private var masterList = generateData()
     
     // the current id being dragged
     // nil when we're not dragging anything
     @State var current: ItemId? = nil
-    
-//    @State var proposedGroups: ItemIds = []
     
     // nil = top level proposed
     // non-nil = deepested nested group possible to join,
@@ -1088,8 +1197,13 @@ struct ContentView: View {
     @State var proposedGroup: ProposedGroup? = nil
     
     var body: some View {
-        
         ZStack {
+            Text("RESET").onTapGesture {
+                masterList = generateData()
+                current = nil
+                proposedGroup = nil
+            }.scaleEffect(2).offset(x: 500)
+            
             ForEach(masterList.items, id: \.id.value) { (d: RectItem) in
                 RectView2(item: d,
                           masterList: $masterList,
@@ -1129,15 +1243,15 @@ let sampleColors0: [MyColor] = [
 //]
 
 
-let sampleColors1: [MyColor] = [
-    MyColor(color: .red),
-    MyColor(color: .blue, children: [
-        MyColor(color: .black),
-        MyColor(color: .brown)
-    ]),
-    MyColor(color: .green),
-    MyColor(color: .yellow)
-]
+//let sampleColors1: [MyColor] = [
+//    MyColor(color: .red),
+//    MyColor(color: .blue, children: [
+//        MyColor(color: .black),
+//        MyColor(color: .brown)
+//    ]),
+//    MyColor(color: .green),
+//    MyColor(color: .yellow)
+//]
 
 //let sampleColors1: [MyColor] = [
 //    MyColor(color: .red),
@@ -1158,7 +1272,8 @@ let sampleColors2: [MyColor] = [
             MyColor(color: .purple),
         ])
     ]),
-    MyColor(color: .green)
+    MyColor(color: .green),
+    MyColor(color: .yellow)
 ]
 
 let sampleColors3: [MyColor] = [
