@@ -788,11 +788,6 @@ func groupClosed(closedId: ItemId,
         return masterList
     }
     
-    
-//    let childrenCount = childrenForParent(
-//        parentId: closedId,
-//        masterList.items).count
-    
     let descendantsCount = getDescendants(
         closedParent.location.x,
         masterList.items).count
@@ -807,57 +802,17 @@ func groupClosed(closedId: ItemId,
     masterList = hideChildren(closedParentId: closedId,
                               masterList)
     
-    // ... technically... parent's own index should not have changed if we only removed or changed items AFTER its index
-//    let parentItem = retrieveItem(closedId, masterList.items)
-//    let parentIndex = parentItem.itemIndex(masterList.items)
-    
     // and move any items below this parent upward
-
     masterList.items = adjustItemsBelow(
-//        parentItem.id,
-//        parentIndex,
+        // parent's own index should not have changed if we only
+        // removed or changed items AFTER its index.
         closedParent.id,
         closedParent.itemIndex(masterList.items),
         adjustment: -CGFloat(moveUpBy),
         masterList.items)
-    // ^^ removing the children from here should not matter, because it does not change the fact that items below parent are still below the parent
 
     return masterList
 }
-
-//func groupClosed(closedId: ItemId,
-//                 _ masterList: MasterList) -> MasterList {
-//    print("groupClosed called")
-//
-//    let childrenCount = childrenForParent(
-//        parentId: closedId,
-//        masterList.items).count
-//
-//    let moveUpBy = childrenCount * VIEW_HEIGHT
-//
-//    var masterList = masterList
-//
-//    // hide the children; does not change count of item
-////    items = hideChildren(closedParent: closedId, items)
-//    masterList = hideChildren(closedParent: closedId,
-//                              masterList)
-//
-//    // should still be able to find parent
-//    let parentItem = retrieveItem(closedId, masterList.items)
-//    let parentIndex = parentItem.itemIndex(masterList.items)
-//
-//    // and move any items below this parent upward
-//    masterList.items = adjustItemsBelow(
-//        parentItem.id,
-//        parentIndex,
-//        adjustment: -CGFloat(moveUpBy),
-//        masterList.items)
-//    // ^^ removing the children from here should not matter, because it does not change the fact that items below parent are still below the parent
-//
-//    return masterList
-//}
-
-
 
 // When group opened:
 // - move parent's children from ExcludedGroups to Items
@@ -866,7 +821,7 @@ func groupClosed(closedId: ItemId,
 func groupOpened(openedId: ItemId,
                  _ masterList: MasterList) -> MasterList {
     
-    print("groupOpened called")
+    log("groupOpened called")
 
     var masterList = masterList
     
@@ -884,13 +839,6 @@ func groupOpened(openedId: ItemId,
     
     masterList = updatedMaster
 
-//    // do this AFTER we've added the children back to `items`
-//    let childrenCount = childrenForParent(
-//        parentId: openedId,
-//        masterList.items).count
-//    let moveDownBy = childrenCount * VIEW_HEIGHT
-    
-    
     // count after adding hidden descendants back to `items`
     let updatedCount = masterList.items.count
     
@@ -901,60 +849,16 @@ func groupOpened(openedId: ItemId,
         
     // and move any items below this parent DOWN
     // ... but skip any children, since their positions' have already been udpated
+    masterList.items = adjustNonDescendantsBelow(
+        lastIndex,
+        adjustment: CGFloat(moveDownBy),
+        masterList.items)
     
-    // should not need this now?
-    // ... no, still required for those items that we didn't
-//    masterList.items = adjustItemsBelow(
-//        parentItem.id,
-//        parentIndex,
-//        adjustment: CGFloat(moveDownBy),
-//        masterList.items)
-    
-    masterList.items = adjustNonDescendantsBelow(lastIndex,
-                                                 adjustment: CGFloat(moveDownBy),
-                                                 masterList.items)
+    log("groupOpened: masterList is now: \(masterList)")
     
     return masterList
 }
 
-
-//func groupOpened(openedId: ItemId,
-//                 _ masterList: MasterList) -> MasterList {
-//
-//    print("groupOpened called")
-//
-//    var masterList = masterList
-//
-//    let parentItem = retrieveItem(openedId, masterList.items)
-//    let parentIndex = parentItem.itemIndex(masterList.items)
-//
-//    masterList = unhideChildren(openedParent: openedId,
-//                                parentIndex: parentIndex,
-//                                parentY: parentItem.location.y,
-//                                masterList)
-//
-//    // do this AFTER we've added the children back to `items`
-//    let childrenCount = childrenForParent(
-//        parentId: openedId,
-//        masterList.items).count
-//
-//    let moveDownBy = childrenCount * VIEW_HEIGHT
-//
-////    let parentItem = retrieveItem(openedId, masterList.items)
-////    let parentIndex = parentItem.itemIndex(masterList.items)
-//
-//    // will this need to change?
-//
-//    // and move any items below this parent DOWN
-//    // ... but skip any children, since their positions' have already been udpated
-//    masterList.items = adjustItemsBelow(
-//        parentItem.id,
-//        parentIndex,
-//        adjustment: CGFloat(moveDownBy),
-//        masterList.items)
-//
-//    return masterList
-//}
 
 
 // works!
