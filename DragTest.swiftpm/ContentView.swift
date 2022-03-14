@@ -559,7 +559,6 @@ func unhideChildrenHelper(item: RectItem, // item that could be a parent or not
     // first, insert the item
     // then, recur on any children
 
-    
     // insert item
     if !isRoot {
         let (updatedMaster,
@@ -667,49 +666,6 @@ func unhideChildren(openedParent: ItemId,
 }
 
 
-// want to get the child items,
-// but also need to update their positions
-//func unhideChildren(openedParent: ItemId,
-//                    parentIndex: Int,
-//                    parentY: CGFloat,
-//                    _ masterList: MasterList) -> MasterList {
-//
-//    // take items from
-//
-//    guard let excludedChildren = masterList.excludedGroups[openedParent] else {
-//        fatalError("Attempted to open a parent that did not have excldued children")
-//    }
-//
-//    log("unhideChildren: parentIndex: \(parentIndex)")
-//
-//    var masterList = masterList
-//
-//    // remove the parent's entry,
-//    // now that you've retrieved the children
-//    masterList.excludedGroups.removeValue(forKey: openedParent)
-//
-//    for child in excludedChildren {
-//        log("unhideChildren: child.color: \(child.color)")
-//        var child = child
-//        // the child's relative index in its own group
-//        // ... + 1
-//        // since parentY + 0 would just be parent's y again!
-//        let relativeIndex = excludedChildren.firstIndex(of: child)! + 1
-//        let childY = parentY + CGFloat(relativeIndex * VIEW_HEIGHT)
-//        log("unhideChildren: childY: \(childY)")
-//        child.location = CGPoint(x: child.location.x,
-//                                 y: childY)
-//        child.previousLocation = child.location
-//        // does this insert ON, or AFTER, the parent ?
-//        log("unhideChildren: masterList.items colors were: \(masterList.items.map(\.color))")
-////        masterList.items.insert(child, at: parentIndex)
-//        // parentIndex + 1, so that child is inserted after the parent
-//        masterList.items.insert(child, at: parentIndex + 1)
-//        log("unhideChildren: masterList.items colors were: \(masterList.items.map(\.color))")
-//    }
-//
-//    return masterList
-//}
 
 // all children, closed or open
 func childrenForParent(parentId: ItemId,
@@ -771,6 +727,7 @@ func adjustItemsBelow(_ parentId: ItemId,
     }
 }
 
+// used for
 func adjustNonDescendantsBelow(_ lastIndex: Int, // the last item
                                adjustment: CGFloat, // down = +y; up = -y
                                _ items: RectItems) -> RectItems {
@@ -797,31 +754,6 @@ func log(_ string: String) {
 func retrieveItem(_ id: ItemId, _ items: RectItems) -> RectItem {
     items.first { $0.id == id }!
 }
-
-// does this item have any children? (whether closed or open)
-//func hasChildren(_ parentId: ItemId, _ items: RectItems) -> Bool {
-//    !childrenForParent(parentId: parentId, items).isEmpty
-//}
-
-//func isGroupClosed(_ parentId: ItemId, _ items: RectItems) -> Bool {
-//
-//    // if all children for this parent are hidden (ie closed),
-//    // then the parent (ie group) is considered closed
-//    let x = childrenForParent(parentId: parentId,
-//                      items).allSatisfy { $0.isHidden }
-//    log("isGroupClosed: parentId: \(parentId): \(x)")
-//    return x
-//
-////    for item in items {
-////        // if any items for thise
-////        if item.parentId == parentId,
-////           !item.isHidden {
-////            return false
-////        }
-////    }
-////    return true
-//}
-
 
 // does this itemId have any children, whether excluded or included?
 func hasChildren(_ parentId: ItemId, _ masterList: MasterList) -> Bool {
