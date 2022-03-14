@@ -1049,7 +1049,7 @@ func maybeMoveIndices(_ items: RectItems,
 
 
 // maybe need to shift ALL items
-func onDragged(_ item: RectItem, // assumes we've already
+func    onDragged(_ item: RectItem, // assumes we've already
                _ translation: CGSize,
                _ items: [RectItem]) -> (RectItems, ProposedGroup?) {
     
@@ -1110,7 +1110,7 @@ func onDragged(_ item: RectItem, // assumes we've already
     let updatedOriginalIndex = item.itemIndex(items)
     item = items[updatedOriginalIndex]
     
-    let proposed = proposedGroups(item, items)
+    let proposed = proposedGroup(item, items)
     
     return (items, proposed)
 }
@@ -1186,24 +1186,33 @@ func findDeepestParent(_ item: RectItem, // the moved-item
 }
 
 
+// good, BUT: if the top level item is itself a parent, then w
+// should be: is blocked by a child-less top-level item immediately above
 func blockedByTopLevelItemImmediatelyAbove(_ item: RectItem,
                                            _ items: RectItems) -> Bool {
+    
     let index = item.itemIndex(items)
     if let immediatelyAbove = items[safeIndex: index - 1],
-       !immediatelyAbove.parentId.isDefined {
-        log("blocked by top level item immediately above")
+       // `parentId: nil` = item is top level
+        !immediatelyAbove.parentId.isDefined,
+       // `empty children` = item is not a parent to anything
+       childrenForParent(parentId: immediatelyAbove.id, items).isEmpty {
+        
+        log("blocked by child-less top-level item immediately above")
         return true
     }
     return false
 }
 
 
-func proposedGroups(_ item: RectItem, // the moved-item
+func proposedGroup(_ item: RectItem, // the moved-item
                     _ items: RectItems) -> ProposedGroup? {
     
     if blockedByTopLevelItemImmediatelyAbove(item, items) {
         return nil
-    } else if let proposed = groupFromChildBelow(item, items) {
+    }
+    // ie is the item in between two children? If so, it belongs to that group
+    else if let proposed = groupFromChildBelow(item, items) {
         return proposed
     } else if let proposed = findDeepestParent(item, items) {
         return proposed
@@ -1212,37 +1221,6 @@ func proposedGroups(_ item: RectItem, // the moved-item
         return nil
     }
 }
-
-
-// ORIGINAL
-//func proposedGroups(_ item: RectItem, // the moved-item
-//                    _ items: RectItems) -> ProposedGroup? {
-//
-//    var proposed: ProposedGroup? = nil
-//
-//    let movedItemIndex = item.itemIndex(items)
-//    let itemsAbove = items.filter { $0.itemIndex(items) > movedItemIndex }
-//
-//
-//    for itemAbove in itemsAbove {
-//
-//        // ie is this dragged item at, or east of, the above item?
-//        if item.location.x >= itemAbove.location.x,
-//           // ie only interested in items that are part of a group;
-//           // otherwise we're just talking about a top level placement
-//           itemAbove.parentId.isDefined {
-//                proposed = ProposedGroup(
-//                    parentId: itemAbove.parentId!,
-//                    xIndentation: itemAbove.location.x)
-//            log("proposedGroups: found proposed: \(proposed)")
-//            log("proposedGroups: ... for itemAbove: \(itemAbove.id)")
-//        }
-//    }
-//    // nil means only top level is possible
-//    log("proposedGroups: final proposed: \(proposed)")
-//    return proposed
-//}
-
 
 func updateItem(_ item: RectItem, _ items: RectItems) -> RectItems {
     let index = item.itemIndex(items)
