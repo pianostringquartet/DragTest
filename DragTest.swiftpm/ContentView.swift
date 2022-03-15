@@ -1164,41 +1164,6 @@ func proposeGroup(_ item: RectItem, // the moved-item
     return proposed
 }
 
-
-
-//func proposeGroup(_ item: RectItem, // the moved-item
-////                  _ items: RectItems) -> ProposedGroup? {
-//                  _ masterList: MasterList) -> ProposedGroup? {
-//
-//    let items = masterList.items
-//
-//    log("proposeGroup: will try to propose group for item: \(item.id)")
-//
-//    // does the item have a non-parent top-level it immediately above it?
-//    // if so, that blocks group proposal
-//    if blockedByTopLevelItemImmediatelyAbove(item, items) {
-//        log("blocked by non-parent top-level item above")
-//        return nil
-//    }
-//    // ie is the item in between two children? If so, it belongs to that group
-//    else if let proposed = groupFromChildBelow(item, items) {
-//        log("found child below")
-//        return proposed
-//    }
-//    // ^^ this isn't really accurate in some cases
-//
-//    else if let proposed = findDeepestParent(item, masterList) {
-//        return proposed
-//    } else {
-//        log("no suggested group for item \(item.id), color: \(item.color)")
-//        return nil
-//    }
-//}
-
-
-
-
-
 func updateItem(_ item: RectItem, _ items: RectItems) -> RectItems {
     let index = item.itemIndex(items)
     var items = items
@@ -1886,11 +1851,11 @@ let sampleColors4: [MyColor] = [
 
 func generateData() -> MasterList {
     MasterList.fromColors(
-        //        sampleColors0
+                sampleColors0
         //                sampleColors1
 //        sampleColors2
 //        sampleColors3
-        sampleColors4
+//        sampleColors4
     )
 }
 
