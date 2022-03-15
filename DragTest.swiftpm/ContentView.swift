@@ -1814,48 +1814,48 @@ let sampleColors3: [MyColor] = [
     MyColor(color: .green)
 ]
 
-//let sampleColors4: [MyColor] = [
-//    MyColor(color: .red),
-//    MyColor(color: .blue, children: [
-//        MyColor(color: .black),
-//        MyColor(color: .brown, children: [
-//            MyColor(color: .cyan),
-//            MyColor(color: .purple)
-//
-//        ]),
-//        MyColor(color: .indigo, children: [
-//            MyColor(color: .orange),
-//            MyColor(color: .gray),
-//        ]),
-//    ]),
-//    MyColor(color: .green),
-//    MyColor(color: .yellow)
-//]
-
 let sampleColors4: [MyColor] = [
     MyColor(color: .red),
     MyColor(color: .blue, children: [
-        
         MyColor(color: .black),
-        
         MyColor(color: .brown, children: [
             MyColor(color: .cyan),
+            MyColor(color: .purple)
+
         ]),
         MyColor(color: .indigo, children: [
             MyColor(color: .orange),
+            MyColor(color: .gray),
         ]),
     ]),
     MyColor(color: .green),
     MyColor(color: .yellow)
 ]
 
+//let sampleColors4: [MyColor] = [
+//    MyColor(color: .red),
+//    MyColor(color: .blue, children: [
+//
+//        MyColor(color: .black),
+//
+//        MyColor(color: .brown, children: [
+//            MyColor(color: .cyan),
+//        ]),
+//        MyColor(color: .indigo, children: [
+//            MyColor(color: .orange),
+//        ]),
+//    ]),
+//    MyColor(color: .green),
+//    MyColor(color: .yellow)
+//]
+
 func generateData() -> MasterList {
     MasterList.fromColors(
-                sampleColors0
-        //                sampleColors1
+//                sampleColors0
+//                        sampleColors1
 //        sampleColors2
 //        sampleColors3
-//        sampleColors4
+        sampleColors4
     )
 }
 
