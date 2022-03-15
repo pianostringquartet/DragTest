@@ -3,19 +3,14 @@ import SwiftUI
 let rectHeight: CGFloat = 100
 let rectWidth: CGFloat = 400
 
-
-// for safe indexing
 extension Array {
     public subscript(safeIndex index: Int) -> Element? {
         guard index >= 0, index < endIndex else {
             return nil
         }
-
         return self[index]
     }
 }
-
-
 
 // if nil, then the 'proposed group' is top level
 // and xIdentation = 0
@@ -65,27 +60,17 @@ func itemsFromColors(_ colors: [MyColor],
     return items
 }
 
-// ie assumes we create all the groups OPEN?
-// ASSUMES ALL GROUPS START OPEN
-//func masterListFromColors(_ colors: [MyColor]) -> MasterList {
-//    let items = itemsFromColors(colors, VIEW_HEIGHT)
-////    let groups = buildGroupsFromItems(items)
-//    let groups = ExcludedGroups()
-//    return MasterList(items, groups)
-//
-//}
-
 // not needed?
-func buildGroupsFromItems(_ items: RectItems) -> ExcludedGroups {
-    var groupsDict = ExcludedGroups()
-    for item in items {
-        // any items that have parentId = this item's id
-        let children = items.filter { ($0.parentId ?? nil) == item.id }
-        groupsDict.updateValue(children,
-                               forKey: item.id)
-    }
-    return groupsDict
-}
+//func buildGroupsFromItems(_ items: RectItems) -> ExcludedGroups {
+//    var groupsDict = ExcludedGroups()
+//    for item in items {
+//        // any items that have parentId = this item's id
+//        let children = items.filter { ($0.parentId ?? nil) == item.id }
+//        groupsDict.updateValue(children,
+//                               forKey: item.id)
+//    }
+//    return groupsDict
+//}
 
 
 // have to keep going through
@@ -138,9 +123,31 @@ func itemsFromColorHelper(_ color: MyColor,
 
 
 // parentId: [children in order]
-typealias ExcludedGroups = [ItemId: RectItems]
+//typealias ExcludedGroups = [ItemId: RectItems]
+//typealias ExcludedGroups = [ItemId: RectItems]
+typealias ExcludedGroups = [ItemId: GroupItems]
+
+//typealias ExcludedGroups = [HiddenGroupKey: RectItems]
 // ^^ needs to be full child, since needs to preserve color etc.;
 // note that full child's location will be updated when adding back into `items` list
+
+
+struct GroupItems: Equatable {
+    var items: RectItems
+    
+    // ie was this item the parent of a group that was closed?
+    // usually?: just for eg a sub-group whose super-group parent has been closed
+    // When we re-open the super-group parent,
+    // we want to preserve the status of this sub-group as opened/closed
+    
+    // `false` = put this group's items into `items`
+    // `true` = skip this group's items
+    
+    // IGNORED if we're directly opening this group
+    var wasClosedWhenSupergroupClosed: Bool
+}
+
+
 
 struct MasterList: Equatable {
     var items: RectItems
@@ -163,11 +170,23 @@ struct MasterList: Equatable {
         return MasterList(items, groups)
     }
     
-    func appendToExcludedGroup(for key: ItemId, _ newItem: RectItem) -> MasterList {
+    // we just add
+    func appendToExcludedGroup(for key: ItemId,
+                               _ newItem: RectItem,
+                               wasAlreadyClosed: Bool) -> MasterList {
         var masterList = self
-        var existing: RectItems = masterList.excludedGroups[key] ?? []
-        existing.append(newItem)
+//        var existing: RectItems = masterList.excludedGroups[key] ?? []
+        let defaultGroup = GroupItems(
+            items: [],
+            wasClosedWhenSupergroupClosed: wasAlreadyClosed)
+        
+        var existing = masterList.excludedGroups[key] ?? defaultGroup
+        
+        existing.items.append(newItem)
+        existing.wasClosedWhenSupergroupClosed = wasAlreadyClosed
+        
         masterList.excludedGroups.updateValue(existing, forKey: key)
+        
         return masterList
     }
 }
@@ -484,7 +503,7 @@ func hasOpenChildren(_ item: RectItem, _ items: RectItems) -> Bool {
 }
 
 
-// only called if parent
+// only called if parent has children
 func hideChildren(closedParentId: ItemId,
                   _ masterList: MasterList) -> MasterList {
 
@@ -492,8 +511,31 @@ func hideChildren(closedParentId: ItemId,
     
     let closedParent = retrieveItem(closedParentId, masterList.items)
     
+    
+    // if there are no descendants, then we're basically done
+    
     // all the items below this parent, with indentation > parent's
     let descendants = getDescendants(closedParent, masterList.items)
+    
+//    // if there are no descendants, then we're probsbly done;
+//    // however, we need to check if there were children that were already excluded;
+//    // in that case, we need to update their `wasAlreadyClosed`
+//    // ... and will need to do some recursively...
+//    if descendants.isEmpty {
+//        log("no descendants, but will check for subgroups that were already closed")
+//        masterList.excludedGroups = superGroupWasClosed(
+//            closedParentId: closedParentId,
+//            masterList)
+//        return masterList
+//    }
+//    // ^^ hold on! this doesn't make sense
+//    // there MUST BE descendants, since we're closing an open group;
+//    // it's more like, if a descendant itself has an entry in ExcludedGroups,
+    // then
+    
+    // almost like you need to save the `wasAlreadyClosed` on the item in the PARENT'S LIST
+    // eg [ItemId: [(WasAlreadyClosed?, RectItem)...]]
+    
             
     // starting: immediate parent will have closed parent's id
     var currentParent: ItemId = closedParentId
@@ -504,8 +546,7 @@ func hideChildren(closedParentId: ItemId,
     for descendant in descendants {
         log("on descendant: \(descendant)")
         
-        // if we ever have a descendant at the same,
-        // or even further west, of the closedParent,
+        // if we ever have a descendant at, or west of, the closedParent,
         // then we made a mistake!
         if descendant.indentationLevel.value <= closedParent.indentationLevel.value {
             fatalError()
@@ -514,8 +555,22 @@ func hideChildren(closedParentId: ItemId,
         // if this descendant is in the same nesting level,
         // just added it to
         if descendant.indentationLevel == currentDeepestIndentation {
+            
+            // must be false if currentParent i
+            // can only possibly be true for subgroups,
+            // so must be false if currentParent is still the closedParent;
+            
+            // only true if currentParent != closedParent.id,
+            // and excludedGroups ALREADY INCLUDES this subgroup parent (ie descendant)
+            
+            let subgroupWasClosed = currentParent != closedParentId && isGroupClosed(descendant.id, masterList)
+//            let subgroupWasClosed = isGroupClosed(descendant.id, masterList)
+            log("same level: subgroupWasClosed: \(subgroupWasClosed)")
+        
             masterList = masterList.appendToExcludedGroup(
-                for: currentParent, descendant)
+                for: currentParent,
+                   descendant,
+                   wasAlreadyClosed: subgroupWasClosed)
         }
         // we either increased or decreased in indentation
         else {
@@ -536,9 +591,19 @@ func hideChildren(closedParentId: ItemId,
                 currentDeepestIndentation = currentDeepestIndentation.dec()
             }
             
+            let subgroupWasClosed = currentParent != closedParentId && isGroupClosed(descendant.id, masterList)
+//            let subgroupWasClosed = isGroupClosed(descendant.id, masterList)
+            log("changed level: subgroupWasClosed: \(subgroupWasClosed)")
+        
             // set the descendant AFTER we've updated the parent
             masterList = masterList.appendToExcludedGroup(
-                for: currentParent, descendant)
+                for: currentParent,
+                   descendant,
+                   wasAlreadyClosed: subgroupWasClosed)
+            
+            // set the descendant AFTER we've updated the parent
+//            masterList = masterList.appendToExcludedGroup(
+//                for: currentParent, descendant)
         }
     }
 
@@ -560,9 +625,16 @@ func popExcludedChildren(parentId: ItemId,
                          _ masterList: MasterList) -> (RectItems, ExcludedGroups)? {
 
     if let excludedChildren = masterList.excludedGroups[parentId] {
+        
+        if excludedChildren.wasClosedWhenSupergroupClosed {
+            log("this subgroup was closed when it was put away, so will skip it")
+            return nil
+        }
+        
         var groups = masterList.excludedGroups
         groups.removeValue(forKey: parentId)
-        return (excludedChildren, groups)
+//        return (excludedChildren, groups)
+        return (excludedChildren.items, groups)
     }
     return nil
 }
@@ -817,6 +889,13 @@ func hasChildren(_ parentId: ItemId, _ masterList: MasterList) -> Bool {
     } else {
         return !childrenForParent(parentId: parentId, masterList.items).isEmpty
     }
+}
+
+
+func superGroupWasClosed(closedParentId: ItemId,
+                         _ masterList: MasterList) -> ExcludedGroups {
+    fatalError()
+    return masterList.excludedGroups
 }
 
 
