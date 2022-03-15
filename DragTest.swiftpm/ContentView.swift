@@ -61,7 +61,7 @@ func itemsFromColors(_ colors: [MyColor],
         currentHighestIndex = newIndex
         items += newItems
     }
-    print("itemsFromColors: items: \(items)")
+//    print("itemsFromColors: items: \(items)")
     return items
 }
 
@@ -1094,30 +1094,6 @@ func maybeMoveIndices(_ items: RectItems,
 }
 
 
-// this is used DURING drag;
-// hence we must use previousLocation + the x-dimension of the in-progress translation
-func getParentIndentation(_ item: RectItem,
-                          _ items: RectItems,
-                          _ widthTranslation: CGFloat) -> CGFloat? {
-    // what is this `item` have
-    if let parentId = item.parentId {
-        let parent = retrieveItem(item.id, items)
-        
-//        log("getParentIndentation: indentation: \(parent.location.x)")
-//        return parent.location.x
-        log("getParentIndentation: indentation: \(parent.previousLocation.x)")
-        //        return parent.previousLocation.x +
-        let inProgressParentIndentation = parent.previousLocation.x + widthTranslation
-        log("getParentIndentation: inProgressParentIndentation: \(inProgressParentIndentation)")
-        return inProgressParentIndentation
-        
-    } else {
-        log("getParentIndentation: no parent")
-        return nil
-    }
-}
-
-
 func onDragged(_ item: RectItem, // assumes we've already
                _ translation: CGSize,
                _ items: [RectItem]) -> (RectItems, ProposedGroup?) {
@@ -1226,16 +1202,37 @@ func findDeepestParent(_ item: RectItem, // the moved-item
                        _ items: RectItems) -> ProposedGroup? {
     
     var proposed: ProposedGroup? = nil
-        
+    log("findDeepestParent: item.location.x: \(item.location.x)")
+    
     for itemAbove in getItemsAbove(item, items) {
+        log("findDeepestParent: itemAbove.id: \(itemAbove.id)")
+        log("findDeepestParent: itemAbove.location.x: \(itemAbove.location.x)")
         // ie is this dragged item at, or east of, the above item?
-        if item.location.x >= itemAbove.location.x,
+        if item.location.x >= itemAbove.location.x {
            // ie only interested in items that are part of a group;
            // otherwise we're just talking about a top level placement
-           itemAbove.parentId.isDefined {
+//           itemAbove.parentId.isDefined {
+            // ^^ no longer true, since we're cjecking for top level item elsewhere?
+            
+            // if the item above is itself part of a group,
+            // we'll
+            if let itemAboveParentId = itemAbove.parentId {
+                log("found itemAbove with parent: \(itemAbove.parentId)")
                 proposed = ProposedGroup(
-                    parentId: itemAbove.parentId!,
+                    parentId: itemAboveParentId,
                     xIndentation: itemAbove.location.x)
+            }
+            // if the item above is NOT itself part of a group,
+            // we'll just use the item above now as its paretn
+            else {
+                log("found itemAbove without parent")
+                proposed = ProposedGroup(
+                    parentId: itemAbove.id,
+//                    xIndentation: itemAbove.location.x)
+                    xIndentation: IndentationLevel(1).toXLocation)
+                // ^^^ if item has no parent ie is top level,
+                // then need this indentation to be at least one level
+            }
             log("findDeepestParent: found proposed: \(proposed)")
             log("findDeepestParent: ... for itemAbove: \(itemAbove.id)")
         }
@@ -1262,6 +1259,11 @@ func blockedByTopLevelItemImmediatelyAbove(_ item: RectItem,
     }
     return false
 }
+
+// retrieves item immediately above, whether that item:
+// 1. is a parent (ie has children)
+//func getItemImmediatelyAbove
+
 
 
 func proposedGroup(_ item: RectItem, // the moved-item
@@ -1418,25 +1420,6 @@ func setXLocationByIndentation(_ item: RectItem,
 }
 
 
-//func moveItemToTopLevel(_ item: RectItem,
-//                        _ items: RectItems) -> RectItems {
-//    var item = item
-//
-//    // top level items have no parent,
-//    // and have x = 0 indentation
-//    item.parentId = nil
-//    item.location.x = 0
-//
-//    // update previousLocation too
-//    item.previousLocation = item.location
-//
-//    log("moveItemToTopLevel: item.location.x: \(item.location.x)")
-//    log("moveItemToTopLevel: item.parentId: \(item.parentId)")
-//    return updateItem(item, items)
-//}
-
-
-
 func onDragEnded(_ item: RectItem,
                  _ items: RectItems,
                  proposed: ProposedGroup?) -> RectItems {
@@ -1527,41 +1510,6 @@ func updatePosition(translation: CGSize,
     return CGPoint(x: adjustedX,
                    y: translation.height + location.y)
 }
-
-
-//func updatePosition(translation: CGSize,
-//                    // usually: previousPosition
-//                    location: CGPoint,
-//                    //
-//                    parentIndentation: CGFloat?) -> CGPoint {
-//
-//    var adjustedX = translation.width + location.x
-//
-//    // a child being moved because we're dragging some higher up parent,
-//    // should not have its indentation changed
-////    if isMovedChild {
-////        log("updatePosition: tried to drag West; will correct to x = 0")
-////        adjustedX = location.x
-////    }
-//
-//    // We must always be 50 points east of our parent
-//    if let parentIndentation = parentIndentation {
-//        log("updatePosition: had parent indentation of \(parentIndentation)")
-//        adjustedX = parentIndentation + CGFloat(INDENTATION_LEVEL)
-//    }
-//
-//    // we can ever go West; can only drag East
-//    else if adjustedX < 0 {
-//        log("updatePosition: tried to drag West; will correct to x = 0")
-//        adjustedX = 0
-//    }
-//
-////    CGPoint(x: translation.width + location.x,
-//    return CGPoint(x: adjustedX,
-//                   y: translation.height + location.y)
-//}
-
-
 
 // eg given some existing items, with various positions,
 
@@ -1684,11 +1632,11 @@ let sampleColors2: [MyColor] = [
         MyColor(color: .black),
         MyColor(color: .brown, children: [
             MyColor(color: .cyan),
-            MyColor(color: .purple),
+//            MyColor(color: .purple),
         ])
     ]),
     MyColor(color: .green),
-    MyColor(color: .yellow)
+//    MyColor(color: .yellow)
 ]
 
 let sampleColors3: [MyColor] = [
