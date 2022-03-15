@@ -906,29 +906,29 @@ func getMovedtoIndex(item: RectItem,
     
     let maxIndex = items.count - 1
     let maxY = maxIndex * viewHeight
-    print("getMovedtoIndex: item.color: \(item.color)")
-    print("getMovedtoIndex: maxY: \(maxY)")
+//    print("getMovedtoIndex: item.color: \(item.color)")
+//    print("getMovedtoIndex: maxY: \(maxY)")
     
     // no, needs to be by steps of 100
     // otherwise 0...800 will be 800 numbers
     
     let range = (0...maxY).reversed().filter { $0.isMultiple(of: viewHeight) }
-    print("getMovedtoIndex: range: \(range)")
+//    print("getMovedtoIndex: range: \(range)")
     
-    print("getMovedtoIndex: item.location.y: \(item.location.y)")
+//    print("getMovedtoIndex: item.location.y: \(item.location.y)")
     
     for threshold in range {
         if item.location.y > CGFloat(threshold) {
-            print("getMovedtoIndex: found at threshold: \(threshold)")
+//            print("getMovedtoIndex: found at threshold: \(threshold)")
             let i = threshold/viewHeight
-            print("getMovedtoIndex: i: \(i)")
+//            print("getMovedtoIndex: i: \(i)")
             return i
         }
     }
     
     // if didn't find anything, return the original index?
     let k = items.firstIndex { $0.id == item.id }!
-    print("getMovedtoIndex: k: \(k)")
+//    print("getMovedtoIndex: k: \(k)")
     return k
 }
 
@@ -962,7 +962,6 @@ func updatePositionsHelper(_ item: RectItem,
         translation: translation,
         location: item.previousLocation,
         parentIndentation: parentIndentation)
-//        isMovedChild: isMovedChild)
     
     print("updatePositionsHelper: item.location is now: \(item.location)")
     print("updatePositionsHelper: item.previousLocation is now: \(item.previousLocation)")
@@ -983,8 +982,6 @@ func updatePositionsHelper(_ item: RectItem,
                 translation,
                 // parentIndentation for this child will be `item`'s indentation
                 parentIndentation: item.location.x)
-//                parentIndentation: item.previousLocation.x)
-//                isMovedChild: true)
             
             for newItem in newItems {
                 let i = items.firstIndex { $0.id == newItem.id }!
@@ -1139,7 +1136,8 @@ func onDragged(_ item: RectItem, // assumes we've already
         items,
         [],
         translation,
-        parentIndentation: getParentIndentation(item, items, translation.width))
+        // only non-nil when updating position of item's children
+        parentIndentation: nil)
     
     items = newItems
     item = items[originalItemIndex] // update the `item` too!
@@ -1495,22 +1493,73 @@ func updatePosition(translation: CGSize,
 //        adjustedX = location.x
 //    }
     
+    // we can ever go West; can only drag East
+    if adjustedX < 0 {
+        log("updatePosition: tried to drag West; will correct to x = 0")
+        adjustedX = 0
+    }
+    
+
     // We must always be 50 points east of our parent
     if let parentIndentation = parentIndentation {
         log("updatePosition: had parent indentation of \(parentIndentation)")
         adjustedX = parentIndentation + CGFloat(INDENTATION_LEVEL)
     }
+    // ^^ when moving a nested group,
+    // it kept thinking that we had some parent identation (which was true!)
+    // so we were always getting some positive adjustedX;
+    // whereas really,
     
-    // we can ever go West; can only drag East
-    else if adjustedX < 0 {
-        log("updatePosition: tried to drag West; will correct to x = 0")
-        adjustedX = 0
-    }
+    // ... should parentIndentation be ignored
+    // each a nested item's
+    // eg when being-dragged-item is nested, it will have a parent which will have an indentation
+    // ... but that's not actually the indentation we want to use in that case.
+    // Instead, we just want
+    
+    
+//    // we can ever go West; can only drag East
+//    if adjustedX < 0 {
+//        log("updatePosition: tried to drag West; will correct to x = 0")
+//        adjustedX = 0
+//    }
     
 //    CGPoint(x: translation.width + location.x,
     return CGPoint(x: adjustedX,
                    y: translation.height + location.y)
 }
+
+
+//func updatePosition(translation: CGSize,
+//                    // usually: previousPosition
+//                    location: CGPoint,
+//                    //
+//                    parentIndentation: CGFloat?) -> CGPoint {
+//
+//    var adjustedX = translation.width + location.x
+//
+//    // a child being moved because we're dragging some higher up parent,
+//    // should not have its indentation changed
+////    if isMovedChild {
+////        log("updatePosition: tried to drag West; will correct to x = 0")
+////        adjustedX = location.x
+////    }
+//
+//    // We must always be 50 points east of our parent
+//    if let parentIndentation = parentIndentation {
+//        log("updatePosition: had parent indentation of \(parentIndentation)")
+//        adjustedX = parentIndentation + CGFloat(INDENTATION_LEVEL)
+//    }
+//
+//    // we can ever go West; can only drag East
+//    else if adjustedX < 0 {
+//        log("updatePosition: tried to drag West; will correct to x = 0")
+//        adjustedX = 0
+//    }
+//
+////    CGPoint(x: translation.width + location.x,
+//    return CGPoint(x: adjustedX,
+//                   y: translation.height + location.y)
+//}
 
 
 
@@ -1534,8 +1583,8 @@ func setYPositionByIndices(_ items: RectItems,
 //        let newLocation = CGPoint(x: 0,
         var item = item
         let newY = CGFloat(offset * viewHeight)
-        print("setYPositionByIndices: item: \(item)")
-        print("setYPositionByIndices: newY: \(newY)")
+//        print("setYPositionByIndices: item: \(item)")
+//        print("setYPositionByIndices: newY: \(newY)")
         
         // Setting position by indices NEVER changes x location
         let newLocation = CGPoint(x: item.location.x,
