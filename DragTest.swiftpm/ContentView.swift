@@ -1285,6 +1285,7 @@ func updateItem(_ item: RectItem, _ items: RectItems) -> RectItems {
 // called in `onDragEnded`
 
 // you're just updating a single item
+// but need to update all the descendants as well?
 func moveItemIntoGroup(_ item: RectItem,
                        _ items: RectItems,
                        _ proposedGroup: ProposedGroup) -> RectItems {
@@ -1325,12 +1326,18 @@ func moveItemToTopLevel(_ item: RectItem,
     items = updateItem(item, items)
     let updatedItem = retrieveItem(item.id, items)
     
+//    return items
+    return maybeSnapDescendants(updatedItem, items)
+
+    
+//    let updatedItem = retrieveItem(item.id, items)
+    
     // need to also snap descendants' x-positions
     // ALL items below this
     
-    return items
+//    return items
 //
-//
+////
 //    let descendants = getDescendants(updatedItem, items)
 //
 //    if descendants.isEmpty {
@@ -1365,10 +1372,70 @@ func moveItemToTopLevel(_ item: RectItem,
 //    return items
 }
 
-//func snapDescendants(_ item: RectItem,
-//                     _ items: RectItems) -> RectItems {
-//
-//}
+func maybeSnapDescendants(_ item: RectItem,
+                          _ items: RectItems) -> RectItems {
+    
+    let descendants = getDescendants(item, items)
+
+    if descendants.isEmpty {
+        log("maybeSnapDescendants: no children for this now-top-level item \(item.id); exiting early")
+        return items
+    }
+
+    var items = items
+    
+    // how to set these indentations appropriately?
+    // you don't have guaranteed clean indentation-levels
+    // every time you encoutner a parentId, you increment the nesting level
+
+    // starts: parent indentation + 1
+    // ^^ does this assume its top level?
+//    var indentationLevel = IndentationLevel(0).inc()
+    var indentationLevel = item.indentationLevel.inc()
+    var currentParentId = item.id
+    
+    log("maybeSnapDescendants: indentationLevel at start: \(indentationLevel)")
+    log("maybeSnapDescendants: currentParentId at start: \(currentParentId)")
+
+    for child in descendants {
+
+        log("maybeSnapDescendants: on child: \(child)")
+        // if we've changed parent ids, then we're on a new nesting level
+        // ... but maybe not correct when eg
+        if let childParentId = child.parentId,
+            childParentId != currentParentId {
+
+            currentParentId = childParentId
+            
+            // this child is east of our previous indentation level,
+            // so we went deeper into nesting
+            if child.location.x > indentationLevel.toXLocation {
+                log("maybeSnapDescendants: child was east")
+                indentationLevel = indentationLevel.inc()
+            }
+            
+            // this child is west of our previous indentation level,
+            // so we backed out a level
+            else if child.location.x < indentationLevel.toXLocation {
+                log("maybeSnapDescendants: child was west")
+                indentationLevel = indentationLevel.dec()
+            }
+            
+//            indentationLevel = indentationLevel.inc()
+            // ^^ not gonna work when eg we've backtracked on a nesting
+            // ... must use child's own indentation level +/- 1,
+            // depending upon whether this new child is east/west
+            // west = indent - 1
+            // level = indent + 1
+        }
+
+        var child = child
+        child = setXLocationByIndentation(child, indentationLevel)
+        items = updateItem(child, items)
+    }
+    
+    return items
+}
 
 
 func setXLocationByIndentation(_ item: RectItem,
@@ -1509,15 +1576,6 @@ func setYPositionByIndices(_ items: RectItems,
     }
 }
 
-func generateData() -> MasterList {
-    MasterList.fromColors(
-        //        sampleColors0
-                sampleColors1
-//                sampleColors2
-        //        sampleColors3
-    )
-}
-
 struct ContentView: View {
     
     @State private var masterList = generateData()
@@ -1592,7 +1650,7 @@ let sampleColors1: [MyColor] = [
     MyColor(color: .red),
     MyColor(color: .blue, children: [
         MyColor(color: .black),
-//        MyColor(color: .brown)
+        MyColor(color: .brown)
     ]),
     MyColor(color: .green),
     MyColor(color: .yellow)
@@ -1625,3 +1683,31 @@ let sampleColors3: [MyColor] = [
     ]),
     MyColor(color: .green)
 ]
+
+let sampleColors4: [MyColor] = [
+    MyColor(color: .red),
+    MyColor(color: .blue, children: [
+        MyColor(color: .black),
+        MyColor(color: .brown, children: [
+            MyColor(color: .cyan),
+            MyColor(color: .purple)
+
+        ]),
+        MyColor(color: .indigo, children: [
+            MyColor(color: .orange),
+            MyColor(color: .gray),
+        ]),
+    ]),
+    MyColor(color: .green),
+    MyColor(color: .yellow)
+]
+
+func generateData() -> MasterList {
+    MasterList.fromColors(
+        //        sampleColors0
+//                sampleColors1
+//                sampleColors2
+                sampleColors3
+    )
+}
+
