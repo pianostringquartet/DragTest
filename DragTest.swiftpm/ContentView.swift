@@ -491,6 +491,8 @@ func hideChildren(closedParentId: ItemId,
     var masterList = masterList
     
     let closedParent = retrieveItem(closedParentId, masterList.items)
+    
+    // all the items below this parent, with indentation > parent's
     let descendants = getDescendants(closedParent, masterList.items)
             
     // starting: immediate parent will have closed parent's id
@@ -499,30 +501,44 @@ func hideChildren(closedParentId: ItemId,
     // starting: immediate child of parent will have parent's indentation level + 1
     var currentDeepestIndentation = closedParent.indentationLevel.inc()
     
-    // all the items below this parent, with indentation > parent's
     for descendant in descendants {
         log("on descendant: \(descendant)")
         
+        // if we ever have a descendant at the same,
+        // or even further west, of the closedParent,
+        // then we made a mistake!
+        if descendant.indentationLevel.value <= closedParent.indentationLevel.value {
+            fatalError()
+        }
+        
+        // if this descendant is in the same nesting level,
+        // just added it to
         if descendant.indentationLevel == currentDeepestIndentation {
             masterList = masterList.appendToExcludedGroup(
                 for: currentParent, descendant)
         }
-        
-        // we went down one more level, so it's a new group;
-        // so we save what we have so far, and then create a new group in excludedGroups
-        else if descendant.indentationLevel.value > currentDeepestIndentation.value {
-                
-            currentParent = descendant.parentId!
-            currentDeepestIndentation = descendant.indentationLevel
+        // we either increased or decreased in indentation
+        else {
             
+            // if we changed indentation levels (whether east or west),
+            // we should have a new parent
+            currentParent = descendant.parentId!
+            
+            // ie we went deeper (farther east)
+            if descendant.indentationLevel.value > currentDeepestIndentation.value {
+                log("went east")
+                currentDeepestIndentation = currentDeepestIndentation.inc()
+            }
+            // ie. we backed up (went one level west)
+            // ie. descendant.indentationLevel.value < currentDeepestIndentation.value
+            else {
+                log("went west")
+                currentDeepestIndentation = currentDeepestIndentation.dec()
+            }
+            
+            // set the descendant AFTER we've updated the parent
             masterList = masterList.appendToExcludedGroup(
                 for: currentParent, descendant)
-        } else {
-            // something went wrong; should not encounter an indentation level higher than what we start with
-            log("hideChildren: descendant.indentationLevel: \(descendant.indentationLevel)")
-            log("hideChildren: currentDeepestIndentation: \(currentDeepestIndentation)")
-            log("hideChildren: closedParent.indentationLevel: \(closedParent.indentationLevel)")
-            fatalError()
         }
     }
 
