@@ -124,8 +124,8 @@ func itemsFromColorHelper(_ color: MyColor,
 
 // parentId: [children in order]
 //typealias ExcludedGroups = [ItemId: RectItems]
-//typealias ExcludedGroups = [ItemId: RectItems]
-typealias ExcludedGroups = [ItemId: GroupItems]
+typealias ExcludedGroups = [ItemId: RectItems]
+//typealias ExcludedGroups = [ItemId: GroupItems]
 
 //typealias ExcludedGroups = [HiddenGroupKey: RectItems]
 // ^^ needs to be full child, since needs to preserve color etc.;
@@ -148,18 +148,24 @@ struct GroupItems: Equatable {
 }
 
 
+typealias ItemIdSet = Set<ItemId>
+typealias CollapsedGroups = ItemIdSet
 
 struct MasterList: Equatable {
     var items: RectItems
     // the [parentId: child-ids] that are not currently shown
     var excludedGroups: ExcludedGroups
     
+    var collapsedGroups: ItemIdSet
     // groups currently shown
 //    var visibleGroups: ItemGroups
     
-    init(_ items: RectItems, _ groups: ExcludedGroups) {
+    init(_ items: RectItems,
+         _ excludedGroups: ExcludedGroups,
+         _ collapsedGroups: ItemIdSet) {
         self.items = items
-        self.excludedGroups = groups
+        self.excludedGroups = excludedGroups
+        self.collapsedGroups = collapsedGroups
     }
     
     // ASSUMES ALL GROUPS OPEN
@@ -167,7 +173,8 @@ struct MasterList: Equatable {
         let items = itemsFromColors(colors, VIEW_HEIGHT)
     //    let groups = buildGroupsFromItems(items)
         let groups = ExcludedGroups()
-        return MasterList(items, groups)
+        let collapsed = CollapsedGroups()
+        return MasterList(items, groups, collapsed)
     }
     
     // we just add
@@ -175,15 +182,16 @@ struct MasterList: Equatable {
                                _ newItem: RectItem,
                                wasAlreadyClosed: Bool) -> MasterList {
         var masterList = self
-//        var existing: RectItems = masterList.excludedGroups[key] ?? []
-        let defaultGroup = GroupItems(
-            items: [],
-            wasClosedWhenSupergroupClosed: wasAlreadyClosed)
+        var existing: RectItems = masterList.excludedGroups[key] ?? []
+//        let defaultGroup = GroupItems(
+//            items: [],
+//            wasClosedWhenSupergroupClosed: wasAlreadyClosed)
         
-        var existing = masterList.excludedGroups[key] ?? defaultGroup
+//        var existing = masterList.excludedGroups[key] ?? defaultGroup
         
-        existing.items.append(newItem)
-        existing.wasClosedWhenSupergroupClosed = wasAlreadyClosed
+//        existing.items.append(newItem)
+        existing.append(newItem)
+//        existing.wasClosedWhenSupergroupClosed = wasAlreadyClosed
         
         masterList.excludedGroups.updateValue(existing, forKey: key)
         
@@ -275,6 +283,8 @@ struct RectView2: View {
     @Binding var current: ItemId?
     @Binding var proposedGroup: ProposedGroup?
     
+    var isClosed: Bool
+    
     var body: some View {
         rectangle
 //        if item.isHidden {
@@ -304,7 +314,7 @@ struct RectView2: View {
                     }
                     
                     if hasChildren(item.id, masterList) {
-                        let isClosed = isGroupClosed(item.id, masterList)
+//                        let isClosed = isGroupClosed(item.id, masterList)
                         Text("\(isClosed ? "OPEN" : "CLOSE")").offset(x: 40)
                             .onTapGesture {
                                 log("onTap...")
@@ -626,15 +636,21 @@ func popExcludedChildren(parentId: ItemId,
 
     if let excludedChildren = masterList.excludedGroups[parentId] {
         
-        if excludedChildren.wasClosedWhenSupergroupClosed {
+//        if excludedChildren.wasClosedWhenSupergroupClosed {
+//            log("this subgroup was closed when it was put away, so will skip it")
+//            return nil
+//        }
+        
+        // prevents us from opening
+        if masterList.collapsedGroups.contains(parentId) {
             log("this subgroup was closed when it was put away, so will skip it")
             return nil
         }
         
         var groups = masterList.excludedGroups
         groups.removeValue(forKey: parentId)
-//        return (excludedChildren, groups)
-        return (excludedChildren.items, groups)
+        return (excludedChildren, groups)
+//        return (excludedChildren.items, groups)
     }
     return nil
 }
@@ -701,7 +717,7 @@ func unhideChildrenHelper(item: RectItem, // item that could be a parent or not
         log("unhideChildrenHelper: had root item \(item.id), so will not add root item again")
     }
     
-    // does this `item` have itemren of its own?
+    // does this `item` have children of its own?
     // if so, recur
     if let (excludedChildren, updatedGroups) = popExcludedChildren(
         parentId: item.id, masterList) {
@@ -943,6 +959,9 @@ func groupClosed(closedId: ItemId,
         closedParent.itemIndex(masterList.items),
         adjustment: -CGFloat(moveUpBy),
         masterList.items)
+    
+    // add parent to collapsed group
+    masterList.collapsedGroups.insert(closedId)
 
     return masterList
 }
@@ -957,6 +976,10 @@ func groupOpened(openedId: ItemId,
     log("groupOpened called")
 
     var masterList = masterList
+    
+    // important: remove this item from collapsedGroups,
+    // so that we can unfurl its own children
+    masterList.collapsedGroups.remove(openedId)
     
     let parentItem = retrieveItem(openedId, masterList.items)
     let parentIndex = parentItem.itemIndex(masterList.items)
@@ -987,8 +1010,10 @@ func groupOpened(openedId: ItemId,
         adjustment: CGFloat(moveDownBy),
         masterList.items)
     
-    log("groupOpened: masterList is now: \(masterList)")
+
     
+    log("groupOpened: masterList is now: \(masterList)")
+
     return masterList
 }
 
@@ -1656,17 +1681,25 @@ struct ContentView: View {
     
     var body: some View {
         ZStack {
-            Text("RESET").onTapGesture {
-                masterList = generateData()
-                current = nil
-                proposedGroup = nil
-            }.scaleEffect(2).offset(x: 500)
+            VStack {
+                Text("RESET").onTapGesture {
+                    masterList = generateData()
+                    current = nil
+                    proposedGroup = nil
+                }.scaleEffect(1.5)
+                
+                let x = masterList.collapsedGroups.map { $0.id
+                }.description
+                Text("Collapsed: \(x)")
+            }
+            .offset(x: 500)
             
             ForEach(masterList.items, id: \.id.value) { (d: RectItem) in
                 RectView2(item: d,
                           masterList: $masterList,
                           current: $current,
-                          proposedGroup: $proposedGroup)
+                          proposedGroup: $proposedGroup,
+                          isClosed: masterList.collapsedGroups.contains(d.id))
                     .zIndex(Double(d.zIndex))
             } // ForEach
         } // ZStack
