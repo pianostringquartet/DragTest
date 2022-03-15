@@ -448,10 +448,11 @@ func getDescendants(_ parentItem: RectItem,
     var descendants = RectItems()
     
     // not all items, but rather only items below!
-//    let itemsBelow = getItemsBelow(parentItem, items)
+    let itemsBelow = getItemsBelow(parentItem, items)
+    log("getDescendants: itemsBelow: \(itemsBelow)")
     
 //    for item in items {
-    for item in getItemsBelow(parentItem, items) {
+    for item in itemsBelow {
         // if you encounter an item at or west of the parentXLocation,
         // then you've finished the parent's nested groups
         if item.location.x <= parentItem.location.x {
@@ -941,7 +942,6 @@ func updatePositionsHelper(_ item: RectItem,
                            // in which case we don't edit its x-location
 //                           isMovedChild: Bool
                            
-                           
                            parentIndentation: CGFloat?) -> (RectItems, [Int]) {
     
     print("updatePositionsHelper called")
@@ -971,8 +971,6 @@ func updatePositionsHelper(_ item: RectItem,
     items[index] = item
     indicesToMove.append(index)
     
-    // while we're moving children,
-    // DO NOT UPDATE THEIR Xs
     items.forEach { childItem in
         if let parentId = childItem.parentId,
            parentId == item.id,
@@ -985,6 +983,7 @@ func updatePositionsHelper(_ item: RectItem,
                 translation,
                 // parentIndentation for this child will be `item`'s indentation
                 parentIndentation: item.location.x)
+//                parentIndentation: item.previousLocation.x)
 //                isMovedChild: true)
             
             for newItem in newItems {
@@ -1097,13 +1096,24 @@ func maybeMoveIndices(_ items: RectItems,
     }
 }
 
+
+// this is used DURING drag;
+// hence we must use previousLocation + the x-dimension of the in-progress translation
 func getParentIndentation(_ item: RectItem,
-                          _ items: RectItems) -> CGFloat? {
+                          _ items: RectItems,
+                          _ widthTranslation: CGFloat) -> CGFloat? {
     // what is this `item` have
     if let parentId = item.parentId {
         let parent = retrieveItem(item.id, items)
-        log("getParentIndentation: indentation: \(parent.location.x)")
-        return parent.location.x
+        
+//        log("getParentIndentation: indentation: \(parent.location.x)")
+//        return parent.location.x
+        log("getParentIndentation: indentation: \(parent.previousLocation.x)")
+        //        return parent.previousLocation.x +
+        let inProgressParentIndentation = parent.previousLocation.x + widthTranslation
+        log("getParentIndentation: inProgressParentIndentation: \(inProgressParentIndentation)")
+        return inProgressParentIndentation
+        
     } else {
         log("getParentIndentation: no parent")
         return nil
@@ -1129,7 +1139,7 @@ func onDragged(_ item: RectItem, // assumes we've already
         items,
         [],
         translation,
-        parentIndentation: getParentIndentation(item, items))
+        parentIndentation: getParentIndentation(item, items, translation.width))
     
     items = newItems
     item = items[originalItemIndex] // update the `item` too!
@@ -1290,6 +1300,7 @@ func moveItemIntoGroup(_ item: RectItem,
                        _ items: RectItems,
                        _ proposedGroup: ProposedGroup) -> RectItems {
     var item = item
+    var items = items
     
     item.parentId = proposedGroup.parentId
     item.location.x = proposedGroup.xIndentation
@@ -1298,7 +1309,12 @@ func moveItemIntoGroup(_ item: RectItem,
     item.previousLocation = item.location
     
     log("moveItemIntoGroup: item.location.x: \(item.location.x)")
-    return updateItem(item, items)
+//    return updateItem(item, items)
+    items = updateItem(item, items)
+    let updatedItem = retrieveItem(item.id, items)
+    
+    return maybeSnapDescendants(updatedItem, items)
+    
 }
 
 
@@ -1321,55 +1337,12 @@ func moveItemToTopLevel(_ item: RectItem,
     
     log("moveItemToTopLevel: item.location.x: \(item.location.x)")
     log("moveItemToTopLevel: item.parentId: \(item.parentId)")
-//    return updateItem(item, items)
     
     items = updateItem(item, items)
     let updatedItem = retrieveItem(item.id, items)
     
-//    return items
     return maybeSnapDescendants(updatedItem, items)
 
-    
-//    let updatedItem = retrieveItem(item.id, items)
-    
-    // need to also snap descendants' x-positions
-    // ALL items below this
-    
-//    return items
-//
-////
-//    let descendants = getDescendants(updatedItem, items)
-//
-//    if descendants.isEmpty {
-//        log("moveItemToTopLevel: no children for this now-top-level item \(item.id), so exiting")
-//        return items
-//    }
-//
-//    // how to set these indentations appropriately?
-//    // you don't have guaranteed clean indentation-levels
-//    // every time you encoutner a parentId, you increment the nesting level
-//
-//    // starts: parent indentation + 1
-//    var indentationLevel = IndentationLevel(0).inc()
-//    var currentParentId = updatedItem.id
-//
-//    for child in descendants {
-//
-//        // if we've changed parent ids, then we're on a new nesting level
-//        // ... but maybe not correct when eg
-//        if let childParentId = child.parentId,
-//            childParentId != currentParentId {
-//
-//            currentParentId = childParentId
-//            indentationLevel = indentationLevel.inc()
-//        }
-//
-//        var child = child
-//        child = setXLocationByIndentation(child, indentationLevel)
-//        items = updateItem(child, items)
-//    }
-//
-//    return items
 }
 
 func maybeSnapDescendants(_ item: RectItem,
@@ -1706,8 +1679,8 @@ func generateData() -> MasterList {
     MasterList.fromColors(
         //        sampleColors0
 //                sampleColors1
-//                sampleColors2
-                sampleColors3
+                sampleColors2
+//                sampleColors3
     )
 }
 
