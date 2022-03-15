@@ -1028,17 +1028,22 @@ func findDeepestParent(_ item: RectItem, // the moved-item
     
     var proposed: ProposedGroup? = nil
     
-//    log("findDeepestParent: item.id: \(item.id)")
-//    log("findDeepestParent: item.location.x: \(item.location.x)")
+    log("findDeepestParent: item.id: \(item.id)")
+    log("findDeepestParent: item.location.x: \(item.location.x)")
     
     let items = masterList.items
     let excludedGroups = masterList.excludedGroups
     
     for itemAbove in getItemsAbove(item, items) {
-//        log("findDeepestParent: itemAbove.id: \(itemAbove.id)")
-//        log("findDeepestParent: itemAbove.location.x: \(itemAbove.location.x)")
+        log("findDeepestParent: itemAbove.id: \(itemAbove.id)")
+        log("findDeepestParent: itemAbove.location.x: \(itemAbove.location.x)")
         // ie is this dragged item at, or east of, the above item?
-        if item.location.x >= itemAbove.location.x {
+//        if item.location.x >= itemAbove.location.x {
+        
+        if item.location.x > itemAbove.location.x {
+            // ^^ has to be >, not >=, because = is top level ?
+            
+        
             // ie only interested in items that are part of a group;
             // otherwise we're just talking about a top level placement
             //           itemAbove.parentId.isDefined {
@@ -1055,7 +1060,7 @@ func findDeepestParent(_ item: RectItem, // the moved-item
             // and NOT use that itemAbove's own parent as our group
             if itemAboveHasChildren,
                !excludedGroups[itemAbove.id].isDefined {
-//                log("found itemAbove that has children; will make being-dragged-item")
+                log("found itemAbove that has children; will make being-dragged-item")
                 
                 // make sure it's not a closed group that we're proposing!
                 
@@ -1070,7 +1075,7 @@ func findDeepestParent(_ item: RectItem, // the moved-item
             
             else if let itemAboveParentId = itemAbove.parentId,
                     !excludedGroups[itemAboveParentId].isDefined {
-//                log("found itemAbove that is part of a group whose parent id is: \(itemAbove.parentId)")
+                log("found itemAbove that is part of a group whose parent id is: \(itemAbove.parentId)")
                 proposed = ProposedGroup(
                     parentId: itemAboveParentId,
                     xIndentation: itemAbove.location.x)
@@ -1081,7 +1086,7 @@ func findDeepestParent(_ item: RectItem, // the moved-item
             // we'll just use the item above now as its parent
 //            else {
             else if !excludedGroups[itemAbove.id].isDefined {
-//                log("found itemAbove without parent")
+                log("found itemAbove without parent")
                 
                 
                 proposed = ProposedGroup(
@@ -1091,10 +1096,10 @@ func findDeepestParent(_ item: RectItem, // the moved-item
                 // ^^^ if item has no parent ie is top level,
                 // then need this indentation to be at least one level
             }
-//            log("findDeepestParent: found proposed: \(proposed)")
-//            log("findDeepestParent: ... for itemAbove: \(itemAbove.id)")
+            log("findDeepestParent: found proposed: \(proposed)")
+            log("findDeepestParent: ... for itemAbove: \(itemAbove.id)")
         } else {
-//            log("\(item.id) was not at/east of itemAbove \(itemAbove.id)")
+            log("\(item.id) was not at/east of itemAbove \(itemAbove.id)")
         }
     }
     log("findDeepestParent: final proposed: \(proposed)")
@@ -1560,7 +1565,7 @@ func onDragEnded(_ item: RectItem,
     // finalizes items' positions by index;
     // also updates itemns' previousPositions.
     items = setYPositionByIndices(items, isDragEnded: true)
-    print("onDragEnded: updated items: \(items)")
+//    print("onDragEnded: updated items: \(items)")
     
     // now that we've finalized the y-position of the items,
     // we need to potentially:
@@ -1587,7 +1592,7 @@ func onDragEnded(_ item: RectItem,
                                    draggedAlong: draggedAlong)
     }
     
-    print("onDragEnded: final items: \(items)")
+//    print("onDragEnded: final items: \(items)")
     return items
 }
 
@@ -1820,7 +1825,7 @@ let sampleColors4: [MyColor] = [
         MyColor(color: .black),
         MyColor(color: .brown, children: [
             MyColor(color: .cyan),
-            MyColor(color: .purple)
+//            MyColor(color: .purple)
 
         ]),
         MyColor(color: .indigo, children: [
@@ -1828,8 +1833,8 @@ let sampleColors4: [MyColor] = [
             MyColor(color: .gray),
         ]),
     ]),
-    MyColor(color: .green),
-    MyColor(color: .yellow)
+//    MyColor(color: .green),
+//    MyColor(color: .yellow)
 ]
 
 //let sampleColors4: [MyColor] = [
