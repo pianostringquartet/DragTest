@@ -213,8 +213,8 @@ func itemsFromColorHelper(_ color: MyColor,
                           nestingLevel: Int,
                           viewHeight: Int = VIEW_HEIGHT) -> (Int, RectItems, Int) {
     
-    log("itemsFromColorHelper: color: \(color)")
-    log("itemsFromColorHelper: nestingLevel at start: \(nestingLevel)")
+//    log("itemsFromColorHelper: color: \(color)")
+//    log("itemsFromColorHelper: nestingLevel at start: \(nestingLevel)")
     
     var currentHighestIndex = currentHighestIndex
     var items = RectItems()
@@ -325,6 +325,71 @@ func itemsFromColorHelper(_ color: MyColor,
 // ie any items below this parent with an indentation level GT parent's identation
 // careful here; if you switched this to only use indentation level,
 // then is places like this onDrag, where might have
+
+
+// careful -- this is "every item below and east"
+// but can be "below and east" if eg there was another intervening group
+// so need logic that takes into account the changes in nesting levels
+//func getDescendants(_ parentItem: RectItem,
+//                    //    _ parentXLocation: CGFloat,
+//                    _ items: RectItems) -> RectItems {
+//    // suppose you had two nested groups
+//    // separated
+//    // this could potentially
+//    // Suppose:
+//    // A
+//    log("getDescendants: parentItem: \(parentItem)")
+//    log("getDescendants: parentItem.location.x: \(parentItem.location.x)")
+//    //    items.filter { $0.location.x > parentXLocation }
+//
+//    var descendants = RectItems()
+//
+//    // not all items, but rather only items below!
+//    let itemsBelow = getItemsBelow(parentItem, items)
+//    log("getDescendants: itemsBelow: \(itemsBelow)")
+//
+//    //    for item in items {
+//
+//    var currentIndentationLevel: CGFloat = parentItem.indentationLevel.toXLocation
+//
+//    for item in itemsBelow {
+//        log("itemBelow: \(item.id), \(item.location.x)")
+//        // if you encounter an item at or west of the parentXLocation,
+//        // then you've finished the parent's nested groups
+////        if item.location.x <= parentItem.location.x {
+////            log("getDescendants: exiting early")
+////            log("getDescendants: early exit: descendants: \(descendants)")
+////            return descendants
+////        }
+//
+//        let itemLocation = item.location.x
+//
+//
+//
+//
+//        // if itemBelow is further east than parent, then add it
+//        if (item.location.x > parentItem.location.x) {
+//            log("getDescendants: adding item: \(item.id)")
+//            descendants.append(item)
+//        } else {
+//            log("getDescendants: skipping item that was aligned with or west of parent")
+//            log("getDescendants: early exit: descendants: \(descendants)")
+//        }
+//
+//        // ^^ possibly the parentItem location is incorrect in some cases when moving a group ?
+//        // ie item was east of parentXLocation
+//
+//        // ^^ this is also incorrect when eg
+//
+////        else {
+////            descendants.append(item)
+////        }
+//    }
+//    log("getDescendants: returning: descendants: \(descendants)")
+//    return descendants
+//}
+
+
 func getDescendants(_ parentItem: RectItem,
                     //    _ parentXLocation: CGFloat,
                     _ items: RectItems) -> RectItems {
@@ -333,28 +398,36 @@ func getDescendants(_ parentItem: RectItem,
     // this could potentially
     // Suppose:
     // A
-    
+    log("getDescendants: parentItem: \(parentItem)")
+    log("getDescendants: parentItem.location.x: \(parentItem.location.x)")
     //    items.filter { $0.location.x > parentXLocation }
-    
+
     var descendants = RectItems()
-    
+
     // not all items, but rather only items below!
     let itemsBelow = getItemsBelow(parentItem, items)
     log("getDescendants: itemsBelow: \(itemsBelow)")
-    
+
     //    for item in items {
     for item in itemsBelow {
+        log("itemBelow: \(item.id), \(item.location.x)")
         // if you encounter an item at or west of the parentXLocation,
         // then you've finished the parent's nested groups
         if item.location.x <= parentItem.location.x {
+            log("getDescendants: exiting early")
+            log("getDescendants: early exit: descendants: \(descendants)")
             return descendants
         }
+        // ^^ possibly the parentItem location is incorrect in some cases when moving a group ?
         // ie item was east of parentXLocation
+
+        // ^^ this is also incorrect when eg
+
         else {
             descendants.append(item)
         }
-        
     }
+    log("getDescendants: returning: descendants: \(descendants)")
     return descendants
 }
 
@@ -723,12 +796,14 @@ func updatePositionsHelper(_ item: RectItem,
                            _ items: RectItems,
                            _ indicesToMove: [Int],
                            _ translation: CGSize,
-                           parentIndentation: CGFloat?) -> (RectItems, [Int]) {
+                           draggedAlong: ItemIdSet,
+                           parentIndentation: CGFloat?) -> (RectItems, [Int], ItemIdSet) {
     
     print("updatePositionsHelper called")
     var item = item
     var items = items
     var indicesToMove = indicesToMove
+    var draggedAlong = draggedAlong
     
     //    let originalItemIndex = items.firstIndex { $0.id == item.id }!
     
@@ -756,11 +831,15 @@ func updatePositionsHelper(_ item: RectItem,
            parentId == item.id,
            // don't update the item again, since you already did that
            childItem.id != item.id {
-            let (newItems, newIndices) = updatePositionsHelper(
+//            let (newItems, newIndices) = updatePositionsHelper(
+            draggedAlong.insert(childItem.id)
+            
+            let (newItems, newIndices, updatedDraggedAlong) = updatePositionsHelper(
                 childItem,
                 items,
                 indicesToMove,
                 translation,
+                draggedAlong: draggedAlong,
                 // parentIndentation for this child will be `item`'s indentation
                 parentIndentation: item.location.x)
             
@@ -769,10 +848,12 @@ func updatePositionsHelper(_ item: RectItem,
                 items[i] = newItem
             }
             indicesToMove = newIndices
+            draggedAlong = draggedAlong.union(updatedDraggedAlong)
         }
     }
     
-    return (items, indicesToMove)
+//    return (items, indicesToMove)
+    return (items, indicesToMove, draggedAlong)
 }
 
 
@@ -894,7 +975,14 @@ func groupFromChildBelow(_ item: RectItem,
     if let itemBelow = items[safeIndex: indexBelow],
        //       itemBelow.parentId.isDefined {
        let parentOfItemBelow = itemBelow.parentId,
-       parentOfItemBelow != item.id {
+//       parentOfItemBelow != item.id {
+    
+        parentOfItemBelow != item.id,
+       itemBelow.location.x >= item.location.x {
+        // ^^ the identation level of the item below must be at or farther east of the dragged-item;
+        // otherwise the item below might be something outside of our group / indentation 
+        
+        
         log("groupFromChildBelow: found child below")
         return ProposedGroup(parentId: itemBelow.parentId!,
                              xIndentation: itemBelow.location.x)
@@ -1054,6 +1142,9 @@ func proposeGroup(_ item: RectItem, // the moved-item
     }
     // ie is the item in between two children? If so, it belongs to that group
     
+    
+    // if the dragged-item has an item below it, or above it,
+    //
     let movedItemChildrenCount = childrenForParent(parentId: item.id, items).count
     
     if let groupDueToChildBelow = groupFromChildBelow(item,
@@ -1063,6 +1154,8 @@ func proposeGroup(_ item: RectItem, // the moved-item
         log("found group \(groupDueToChildBelow.parentId) from child below")
         proposed = groupDueToChildBelow
     }
+    
+    
     
     log("proposeGroup: returning: \(proposed)")
     return proposed
@@ -1116,9 +1209,12 @@ func updateItem(_ item: RectItem, _ items: RectItems) -> RectItems {
 // but need to update all the descendants as well?
 func moveItemIntoGroup(_ item: RectItem,
                        _ items: RectItems,
+                       draggedAlong: ItemIdSet,
                        _ proposedGroup: ProposedGroup) -> RectItems {
     var item = item
     var items = items
+    
+    let originalItem = item
     
     item.parentId = proposedGroup.parentId
     item.location.x = proposedGroup.xIndentation
@@ -1127,11 +1223,12 @@ func moveItemIntoGroup(_ item: RectItem,
     item.previousLocation = item.location
     
     log("moveItemIntoGroup: item.location.x: \(item.location.x)")
-    //    return updateItem(item, items)
     items = updateItem(item, items)
     let updatedItem = retrieveItem(item.id, items)
     
-    return maybeSnapDescendants(updatedItem, items)
+    return maybeSnapDescendants(updatedItem,
+                                items,
+                                draggedAlong: draggedAlong)
     
 }
 
@@ -1140,7 +1237,9 @@ func moveItemIntoGroup(_ item: RectItem,
 
 // this needs to also set the x location for all the descendants as well
 func moveItemToTopLevel(_ item: RectItem,
-                        _ items: RectItems) -> RectItems {
+//                        _ items: RectItems) -> RectItems {
+                        _ items: RectItems,
+                        draggedAlong: ItemIdSet) -> RectItems {
     
     var item = item
     var items = items
@@ -1159,14 +1258,21 @@ func moveItemToTopLevel(_ item: RectItem,
     items = updateItem(item, items)
     let updatedItem = retrieveItem(item.id, items)
     
-    return maybeSnapDescendants(updatedItem, items)
+//    return maybeSnapDescendants(updatedItem, items)
+    return maybeSnapDescendants(updatedItem,
+                                items,
+                                draggedAlong: draggedAlong)
     
 }
 
+//func maybeSnapDescendants(_ item: RectItem,
+//                          _ items: RectItems) -> RectItems {
 func maybeSnapDescendants(_ item: RectItem,
-                          _ items: RectItems) -> RectItems {
+                          _ items: RectItems,
+                          draggedAlong: ItemIdSet) -> RectItems {
     
-    let descendants = getDescendants(item, items)
+//    let descendants = getDescendants(item, items)
+    let descendants = items.filter { draggedAlong.contains($0.id) }
     
     if descendants.isEmpty {
         log("maybeSnapDescendants: no children for this now-top-level item \(item.id); exiting early")
@@ -1190,7 +1296,7 @@ func maybeSnapDescendants(_ item: RectItem,
     
     for child in descendants {
         
-        log("maybeSnapDescendants: on child: \(child)")
+        log("maybeSnapDescendants: on child: \(child.id), \(child.color), \(child.location.x)")
         // if we've changed parent ids, then we're on a new nesting level
         // ... but maybe not correct when eg
         if let childParentId = child.parentId,
@@ -1210,11 +1316,14 @@ func maybeSnapDescendants(_ item: RectItem,
             else if child.location.x < indentationLevel.toXLocation {
                 log("maybeSnapDescendants: child was west")
                 indentationLevel = indentationLevel.dec()
+            } else {
+                log("maybeSnapDescendants: child was aligned")
             }
         }
         
         var child = child
         child = setXLocationByIndentation(child, indentationLevel)
+        log("maybeSnapDescendants: child location after setXLocationByIndentation: \(child.location.x)")
         items = updateItem(child, items)
     }
     
@@ -1391,7 +1500,8 @@ func onGroupClosed(closedId: ItemId,
 func onDragged(_ item: RectItem, // assumes we've already
                _ translation: CGSize,
 //               _ items: [RectItem]) -> (RectItems, ProposedGroup?) {
-               _ masterList: MasterList) -> (MasterList, ProposedGroup?) {
+//               _ masterList: MasterList) -> (MasterList, ProposedGroup?) {
+               _ masterList: MasterList) -> (MasterList, ProposedGroup?, BeingDraggedItem) {
     
     print("onDragged called")
     var item = item
@@ -1406,18 +1516,25 @@ func onDragged(_ item: RectItem, // assumes we've already
 //    let originalItemIndex = items.firstIndex { $0.id == item.id }!
     let originalItemIndex = masterList.items.firstIndex { $0.id == item.id }!
     
-    let (newItems, newIndices) = updatePositionsHelper(
+    var draggedAlong = ItemIdSet()
+    
+//    let (newItems, newIndices) = updatePositionsHelper(
+    let (newItems, newIndices, updatedDraggedAlong) = updatePositionsHelper(
         item,
 //        items,
         masterList.items,
         [],
         translation,
+        draggedAlong: draggedAlong,
         // only non-nil when updating position of item's children
         parentIndentation: nil)
     
 //    items = newItems
     masterList.items = newItems
     item = masterList.items[originalItemIndex] // update the `item` too!
+    
+    draggedAlong = draggedAlong.union(updatedDraggedAlong)
+    
     
 //    print("onDragged: newItems: \(newItems)")
 //    print("onDragged: new item: \(item)")
@@ -1453,11 +1570,20 @@ func onDragged(_ item: RectItem, // assumes we've already
     
     let proposed = proposeGroup(item, masterList)
     
-    return (masterList, proposed)
+    let beingDragged = BeingDraggedItem(current: item.id,
+                                        draggedAlong: draggedAlong)
+    
+    log("onDrag: beingDragged: \(beingDragged)")
+//    return (masterList, proposed)
+    return (masterList, proposed, beingDragged)
 }
 
+//func onDragEnded(_ item: RectItem,
+//                 _ items: RectItems,
+//                 proposed: ProposedGroup?) -> RectItems {
 func onDragEnded(_ item: RectItem,
                  _ items: RectItems,
+                 draggedAlong: ItemIdSet,
                  proposed: ProposedGroup?) -> RectItems {
     
     print("onDragEnded called")
@@ -1478,6 +1604,7 @@ func onDragEnded(_ item: RectItem,
         let updatedItem = items.first { $0.id == item.id }!
         items = moveItemIntoGroup(updatedItem,
                                   items,
+                                  draggedAlong: draggedAlong,
                                   proposed)
     }
     
@@ -1487,7 +1614,9 @@ func onDragEnded(_ item: RectItem,
     else {
         log("onDragEnded: no proposed group; will snap to top level")
         let updatedItem = items.first { $0.id == item.id }!
-        items = moveItemToTopLevel(updatedItem, items)
+        items = moveItemToTopLevel(updatedItem,
+                                   items,
+                                   draggedAlong: draggedAlong)
     }
     
     print("onDragEnded: final items: \(items)")
@@ -1502,7 +1631,8 @@ struct RectView2: View {
     
     var item: RectItem
     @Binding var masterList: MasterList // all items + groups
-    @Binding var current: ItemId?
+//    @Binding var current: ItemId?
+    @Binding var current: BeingDraggedItem?
     @Binding var proposedGroup: ProposedGroup?
     var isClosed: Bool
     
@@ -1512,7 +1642,8 @@ struct RectView2: View {
     
     var rectangle: some View {
         
-        let isBeingDraggedColor: Color = (current.map { $0 == item.id } ?? false) ? .white : .clear
+//        let isBeingDraggedColor: Color = (current.map { $0 == item.id } ?? false) ? .white : .clear
+        let isBeingDraggedColor: Color = (current.map { $0.current == item.id } ?? false) ? .white : .clear
         
         let isProposedGroupColor: Color = (proposedGroup?.parentId == item.id) ? .white : .clear
         
@@ -1553,22 +1684,24 @@ struct RectView2: View {
                 //                item.location = updatePosition(
                 //                    translationHeight: value.translation.height,
                 //                    location: item.previousLocation)
-                current = item.id
+//                current = item.id
                 var item = item
                 item.zIndex = 9999
                 
-                let (newMasterList, proposed) = onDragged(
+//                let (newMasterList, proposed) = onDragged(
+                let (newMasterList, proposed, beingDragged) = onDragged(
                     item, // this dragged item
                     value.translation, // drag data
                     // ALL items
                     masterList)
                 
+                current = beingDragged
                 masterList = newMasterList
                 proposedGroup = proposed
             })
                         .onEnded({ _ in
                 print("onEnded: \(item.id)")
-                current = nil
+//                current = nil
                 var item = item
                 item.previousLocation = item.location
                 item.zIndex = 0 // set to zero when drag ended
@@ -1578,14 +1711,26 @@ struct RectView2: View {
                 masterList.items = onDragEnded(
                     item,
                     masterList.items,
+                    // MUST have a `current`
+                    draggedAlong: current!.draggedAlong,
                     proposed: proposedGroup)
                 
                 // also reset the potentially highlighted group
                 proposedGroup = nil
+                // and reset current dragging item
+                current = nil
                 
             })
             ) // gesture
     }
+}
+
+struct BeingDraggedItem: Equatable {
+    // directly dragged
+    var current: ItemId
+    
+    // dragged along as part of children etc.
+    var draggedAlong: ItemIdSet
 }
 
 struct ContentView: View {
@@ -1594,7 +1739,9 @@ struct ContentView: View {
     
     // the current id being dragged
     // nil when we're not dragging anything
-    @State var current: ItemId? = nil
+//    @State var current: ItemId? = nil
+    @State var current: BeingDraggedItem? = nil
+    
     
     // nil = top level proposed
     // non-nil = deepested nested group possible to join,
