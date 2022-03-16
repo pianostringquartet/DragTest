@@ -158,15 +158,20 @@ struct RectItem: Equatable {
     
     // for converting items back into nested data
     var parentId: ItemId? = nil
+    
+    // is this item the parent for others?
+    let isGroup: Bool
    
     init(id: ItemId,
-         color: Color, location: CGPoint, children: [RectItem] = [], parentId: ItemId? = nil) {
+         color: Color, location: CGPoint, children: [RectItem] = [], parentId: ItemId? = nil,
+         isGroup: Bool) {
         self.id = id
         self.color = color
         self.location = location
         self.previousLocation = location
         self.children = children
         self.parentId = parentId
+        self.isGroup = isGroup
     }
     
     // this item's index
@@ -230,11 +235,17 @@ func itemsFromColorHelper(_ color: MyColor,
     
     currentHighestIndex += 1
     
-    let item = RectItem(id: ItemId(currentHighestIndex),
-                        color: color.color,
-                        location: CGPoint(x: (viewHeight/2) * nestingLevel,
-                                          y: viewHeight * currentHighestIndex),
-                        parentId: parentId)
+    // if MyColor has children at the creation,
+    // then it is a group
+    let hasChildren = !color.children.isEmpty
+    
+    let item = RectItem(
+        id: ItemId(currentHighestIndex),
+        color: color.color,
+        location: CGPoint(x: (viewHeight/2) * nestingLevel,
+                          y: viewHeight * currentHighestIndex),
+        parentId: parentId,
+        isGroup: hasChildren)
     
     items.append(item)
     
@@ -242,14 +253,16 @@ func itemsFromColorHelper(_ color: MyColor,
     // nesting level stays the same?
     // how do we 'crawl back out of' a group?
     
-    if color.children.isEmpty {
+//    if color.children.isEmpty {
+    if !hasChildren {
         log("No children, so returning")
         return (currentHighestIndex, items, nestingLevel)
     }
     
     // if we're about to go down another level,
     // increment the nesting
-    if !color.children.isEmpty {
+//    if !color.children.isEmpty {
+    if hasChildren {
         nestingLevel += 1
     }
 //    log("itemsFromColorHelper: nestingLevel prepped for children: \(nestingLevel)")
@@ -756,14 +769,44 @@ func retrieveItem(_ id: ItemId, _ items: RectItems) -> RectItem {
 }
 
 // does this itemId have any children, whether excluded or included?
+//func hasChildren(_ parentId: ItemId, _ masterList: MasterList) -> Bool {
+//
+//    if masterList.excludedGroups[parentId].isDefined {
+//        return true
+//    } else {
+//        return !childrenForParent(parentId: parentId, masterList.items).isEmpty
+//    }
+//}
+
+// better: isGroup
 func hasChildren(_ parentId: ItemId, _ masterList: MasterList) -> Bool {
+
+    log("hasChildren: parentId: \(parentId)")
+    log("hasChildren: masterList.items: \(masterList.items)")
+//    return retrieveItem(parentId, masterList.items).isGroup
     
-    if masterList.excludedGroups[parentId].isDefined {
+    if let x = masterList.items.first(where: { $0.id == parentId }),
+       x.isGroup {
+        log("hasChildren: true because isGroup")
+        return true
+    } else if masterList.excludedGroups[parentId].isDefined {
+        log("hasChildren: true because has entry in excludedGroups")
+        return true
+    } else if !childrenForParent(parentId: parentId, masterList.items).isEmpty {
+        log("hasChildren: true because has non-empty children in on-screen items")
         return true
     } else {
-        return !childrenForParent(parentId: parentId, masterList.items).isEmpty
+        log("hasChildren: false....")
+        return false
     }
+    
+//    if masterList.excludedGroups[parentId].isDefined {
+//        return true
+//    } else {
+//        return !childrenForParent(parentId: parentId, masterList.items).isEmpty
+//    }
 }
+
 
 // works!
 func getMovedtoIndex(item: RectItem,
@@ -1041,7 +1084,7 @@ func findDeepestParent(_ item: RectItem, // the moved-item
 //        if item.location.x >= itemAbove.location.x {
         
         if item.location.x > itemAbove.location.x {
-            // ^^ has to be >, not >=, because = is top level ?
+            // ^^ has to be >, not >=, because = is top level in some cases?
             
         
             // ie only interested in items that are part of a group;
@@ -1467,6 +1510,8 @@ func onGroupClosed(closedId: ItemId,
     // add parent to collapsed group
     masterList.collapsedGroups.insert(closedId)
     
+    log("onGroupClosed: masterList.items by color: \(masterList.items.map(\.color))")
+    
     return masterList
 }
 
@@ -1547,13 +1592,10 @@ func onDragged(_ item: RectItem, // assumes we've already
                                         draggedAlong: draggedAlong)
     
     log("onDrag: beingDragged: \(beingDragged)")
-//    return (masterList, proposed)
     return (masterList, proposed, beingDragged)
 }
 
-//func onDragEnded(_ item: RectItem,
-//                 _ items: RectItems,
-//                 proposed: ProposedGroup?) -> RectItems {
+
 func onDragEnded(_ item: RectItem,
                  _ items: RectItems,
                  draggedAlong: ItemIdSet,
@@ -1592,7 +1634,8 @@ func onDragEnded(_ item: RectItem,
                                    draggedAlong: draggedAlong)
     }
     
-//    print("onDragEnded: final items: \(items)")
+    print("onDragEnded: final items by color: \(items.map(\.color))")
+    print("onDragEnded: final items by color: \(items.map(\.location.x))")
     return items
 }
 
@@ -1681,12 +1724,15 @@ struct RectView2: View {
                 
                 let index = masterList.items.firstIndex { $0.id == item.id }!
                 masterList.items[index] = item
+                
                 masterList.items = onDragEnded(
                     item,
                     masterList.items,
                     // MUST have a `current`
                     draggedAlong: current!.draggedAlong,
                     proposed: proposedGroup)
+                
+                log("Inside view, onDragEnded just run: items: \(masterList.items.map(\.color))")
                 
                 // also reset the potentially highlighted group
                 proposedGroup = nil
