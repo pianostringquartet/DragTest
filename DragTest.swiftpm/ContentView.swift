@@ -768,23 +768,8 @@ func retrieveItem(_ id: ItemId, _ items: RectItems) -> RectItem {
     items.first { $0.id == id }!
 }
 
-// does this itemId have any children, whether excluded or included?
-//func hasChildren(_ parentId: ItemId, _ masterList: MasterList) -> Bool {
-//
-//    if masterList.excludedGroups[parentId].isDefined {
-//        return true
-//    } else {
-//        return !childrenForParent(parentId: parentId, masterList.items).isEmpty
-//    }
-//}
-
-// better: isGroup
 func hasChildren(_ parentId: ItemId, _ masterList: MasterList) -> Bool {
 
-    log("hasChildren: parentId: \(parentId)")
-    log("hasChildren: masterList.items: \(masterList.items)")
-//    return retrieveItem(parentId, masterList.items).isGroup
-    
     if let x = masterList.items.first(where: { $0.id == parentId }),
        x.isGroup {
         log("hasChildren: true because isGroup")
@@ -799,14 +784,7 @@ func hasChildren(_ parentId: ItemId, _ masterList: MasterList) -> Bool {
         log("hasChildren: false....")
         return false
     }
-    
-//    if masterList.excludedGroups[parentId].isDefined {
-//        return true
-//    } else {
-//        return !childrenForParent(parentId: parentId, masterList.items).isEmpty
-//    }
 }
-
 
 // works!
 func getMovedtoIndex(item: RectItem,
@@ -850,7 +828,7 @@ func updatePositionsHelper(_ item: RectItem,
                            draggedAlong: ItemIdSet,
                            parentIndentation: CGFloat?) -> (RectItems, [Int], ItemIdSet) {
     
-//    print("updatePositionsHelper called")
+    print("updatePositionsHelper called")
     var item = item
     var items = items
     var indicesToMove = indicesToMove
@@ -858,8 +836,8 @@ func updatePositionsHelper(_ item: RectItem,
     
     //    let originalItemIndex = items.firstIndex { $0.id == item.id }!
     
-//    print("updatePositionsHelper: item.location was: \(item.location)")
-//    print("updatePositionsHelper: item.previousLocation was: \(item.previousLocation)")
+    print("updatePositionsHelper: item.location was: \(item.location)")
+    print("updatePositionsHelper: item.previousLocation was: \(item.previousLocation)")
     
     // more, if this `item` has children
     //    var indicesofItemsToMove: [Int] = [originalItemIndex]
@@ -870,8 +848,8 @@ func updatePositionsHelper(_ item: RectItem,
         location: item.previousLocation,
         parentIndentation: parentIndentation)
     
-//    print("updatePositionsHelper: item.location is now: \(item.location)")
-//    print("updatePositionsHelper: item.previousLocation is now: \(item.previousLocation)")
+    print("updatePositionsHelper: item.location is now: \(item.location)")
+    print("updatePositionsHelper: item.previousLocation is now: \(item.previousLocation)")
     
     let index: Int = items.firstIndex { $0.id == item.id }!
     items[index] = item
@@ -1367,11 +1345,21 @@ func updatePosition(translation: CGSize,
     var adjustedX = translation.width + location.x
     
 
+    log("updatePosition: adjustedX: \(adjustedX)")
     // we can ever go West; can only drag East
     if adjustedX < 0 {
         log("updatePosition: tried to drag West; will correct to x = 0")
         adjustedX = 0
     }
+    
+    let EAST_LIMIT = 6 * CGFloat(INDENTATION_LEVEL)
+    
+    // if we're farther east than eg 5 indentation levels, then just don't let it move that far?
+    if adjustedX > EAST_LIMIT {
+        log("updatePosition: too far east; will limit")
+        adjustedX = EAST_LIMIT
+    }
+    
     
     
     // We must always be 50 points east of our parent
@@ -1379,6 +1367,7 @@ func updatePosition(translation: CGSize,
         log("updatePosition: had parent indentation of \(parentIndentation)")
         adjustedX = parentIndentation + CGFloat(INDENTATION_LEVEL)
     }
+    
     //    CGPoint(x: translation.width + location.x,
     return CGPoint(x: adjustedX,
                    y: translation.height + location.y)
