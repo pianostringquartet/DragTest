@@ -1135,6 +1135,7 @@ func findDeepestParent(_ item: RectItem, // the moved-item
 
 // good, BUT: if the top level item is itself a parent, then w
 // should be: is blocked by a child-less top-level item immediately above
+// ... possibly don't even need this function anymore ...
 func blockedByTopLevelItemImmediatelyAbove(_ item: RectItem,
                                            _ items: RectItems) -> Bool {
     
@@ -1142,8 +1143,13 @@ func blockedByTopLevelItemImmediatelyAbove(_ item: RectItem,
     if let immediatelyAbove = items[safeIndex: index - 1],
        // `parentId: nil` = item is top level
        !immediatelyAbove.parentId.isDefined,
-       // `empty children` = item is not a parent to anything
-       childrenForParent(parentId: immediatelyAbove.id, items).isEmpty {
+       
+        // if the item above us were a group,
+        // then we'd propose that
+        !immediatelyAbove.isGroup {
+        
+        // `empty children` = item is not a parent to anything
+//       childrenForParent(parentId: immediatelyAbove.id, items).isEmpty {
         
         log("blocked by child-less top-level item immediately above")
         return true
@@ -1835,13 +1841,9 @@ let sampleColors0: [MyColor] = [
 //]
 
 let sampleColors1: [MyColor] = [
-    MyColor(color: .red),
     MyColor(color: .blue, children: [
         MyColor(color: .black),
-        MyColor(color: .brown)
-    ]),
-    MyColor(color: .green),
-    MyColor(color: .yellow)
+    ])
 ]
 
 let sampleColors2: [MyColor] = [
@@ -1910,10 +1912,10 @@ let sampleColors4: [MyColor] = [
 func generateData() -> MasterList {
     MasterList.fromColors(
 //                sampleColors0
-//                        sampleColors1
+        sampleColors1
 //        sampleColors2
 //        sampleColors3
-        sampleColors4
+//        sampleColors4
     )
 }
 
