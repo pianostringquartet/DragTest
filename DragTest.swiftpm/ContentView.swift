@@ -181,8 +181,13 @@ struct RectItem: Equatable {
         items.firstIndex { $0.id == self.id }!
     }
     
+    // better?: use previousLocation.x,
+    // so that we can use an item's original indentation level while dragging,
+    // and then its only in onDragEnded, at the end of snapDescendants,
+    // that we update previousLocation
     var indentationLevel: IndentationLevel {
-        IndentationLevel.fromXLocation(x: self.location.x)
+//        IndentationLevel.fromXLocation(x: self.location.x)
+        IndentationLevel.fromXLocation(x: self.previousLocation.x)
     }
 }
 
@@ -772,16 +777,16 @@ func hasChildren(_ parentId: ItemId, _ masterList: MasterList) -> Bool {
 
     if let x = masterList.items.first(where: { $0.id == parentId }),
        x.isGroup {
-        log("hasChildren: true because isGroup")
+//        log("hasChildren: true because isGroup")
         return true
     } else if masterList.excludedGroups[parentId].isDefined {
-        log("hasChildren: true because has entry in excludedGroups")
+//        log("hasChildren: true because has entry in excludedGroups")
         return true
     } else if !childrenForParent(parentId: parentId, masterList.items).isEmpty {
-        log("hasChildren: true because has non-empty children in on-screen items")
+//        log("hasChildren: true because has non-empty children in on-screen items")
         return true
     } else {
-        log("hasChildren: false....")
+//        log("hasChildren: false....")
         return false
     }
 }
@@ -1252,21 +1257,21 @@ func moveItemToTopLevel(_ item: RectItem,
     items = updateItem(item, items)
     let updatedItem = retrieveItem(item.id, items)
     
-//    return maybeSnapDescendants(updatedItem, items)
     return maybeSnapDescendants(updatedItem,
                                 items,
                                 draggedAlong: draggedAlong)
     
 }
 
-//func maybeSnapDescendants(_ item: RectItem,
-//                          _ items: RectItems) -> RectItems {
+
 func maybeSnapDescendants(_ item: RectItem,
                           _ items: RectItems,
                           draggedAlong: ItemIdSet) -> RectItems {
     
 //    let descendants = getDescendants(item, items)
     let descendants = items.filter { draggedAlong.contains($0.id) }
+    log("maybeSnapDescendants: draggedAlong by id: \(draggedAlong.map(\.id))")
+    log("maybeSnapDescendants: descendants by id: \(descendants.map(\.id))")
     
     if descendants.isEmpty {
         log("maybeSnapDescendants: no children for this now-top-level item \(item.id); exiting early")
@@ -1285,12 +1290,18 @@ func maybeSnapDescendants(_ item: RectItem,
     var indentationLevel = item.indentationLevel.inc()
     var currentParentId = item.id
     
-//    log("maybeSnapDescendants: indentationLevel at start: \(indentationLevel)")
-//    log("maybeSnapDescendants: currentParentId at start: \(currentParentId)")
+    log("maybeSnapDescendants: indentationLevel at start: \(indentationLevel)")
+    log("maybeSnapDescendants: currentParentId at start: \(currentParentId)")
     
     for child in descendants {
         
-        log("maybeSnapDescendants: on child: \(child.id), \(child.color), \(child.location.x)")
+        log("maybeSnapDescendants: on child: \(child.id), \(child.color), \(child.location.x), parentId: \(child.parentId)")
+        
+        log("maybeSnapDescendants: CURRENT: indentationLevel: \(indentationLevel)")
+        log("maybeSnapDescendants: CURRENT: indentationLevel.toXLocation: \(indentationLevel.toXLocation)")
+        log("maybeSnapDescendants: CURRENT: currentParentId: \(currentParentId)")
+        
+//        log("maybeSnapDescendants: on child: \(child)")
         // if we've changed parent ids, then we're on a new nesting level
         // ... but maybe not correct when eg
         if let childParentId = child.parentId,
@@ -1300,14 +1311,19 @@ func maybeSnapDescendants(_ item: RectItem,
             
             // this child is east of our previous indentation level,
             // so we went deeper into nesting
-            if child.location.x > indentationLevel.toXLocation {
+//            if child.location.x > indentationLevel.toXLocation {
+            
+            // compare against child's indentation level,
+            // which is not changed until the very end of onDragEnded
+            if child.indentationLevel.value > indentationLevel.value {
                 log("maybeSnapDescendants: child was east")
                 indentationLevel = indentationLevel.inc()
             }
             
             // this child is west of our previous indentation level,
             // so we backed out a level
-            else if child.location.x < indentationLevel.toXLocation {
+//            else if child.location.x < indentationLevel.toXLocation {
+            else if child.indentationLevel.value < indentationLevel.value {
                 log("maybeSnapDescendants: child was west")
                 indentationLevel = indentationLevel.dec()
             } else {
@@ -1387,7 +1403,6 @@ func setYPositionByIndices(_ items: RectItems,
                            isDragEnded: Bool = false,
                            _ viewHeight: Int = 100) -> RectItems {
     
-    
     items.enumerated().map { (offset, item) in
         // need to keep the level of nesting, which never changes when reseting positions
         //        let newLocation = CGPoint(x: 0,
@@ -1400,9 +1415,12 @@ func setYPositionByIndices(_ items: RectItems,
         let newLocation = CGPoint(x: item.location.x,
                                   y: newY)
         item.location = newLocation
+        
+        // ONLY SET `previousLocation.y` HERE
         if isDragEnded {
-            print("setYPositionByIndices: drag ended, so resetting previous position")
-            item.previousLocation = newLocation
+//            print("setYPositionByIndices: drag ended, so resetting previous position")
+//            item.previousLocation = newLocation
+            item.previousLocation.y = newLocation.y
         }
         return item
     }
@@ -1855,7 +1873,7 @@ let sampleColors3: [MyColor] = [
 ]
 
 let sampleColors4: [MyColor] = [
-    MyColor(color: .red),
+//    MyColor(color: .red),
     MyColor(color: .blue, children: [
         MyColor(color: .black),
         MyColor(color: .brown, children: [
@@ -1865,7 +1883,7 @@ let sampleColors4: [MyColor] = [
         ]),
         MyColor(color: .indigo, children: [
             MyColor(color: .orange),
-            MyColor(color: .gray),
+//            MyColor(color: .gray),
         ]),
     ]),
 //    MyColor(color: .green),
