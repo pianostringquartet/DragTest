@@ -848,6 +848,11 @@ func updatePositionsHelper(_ item: RectItem,
     //    var indicesofItemsToMove: [Int] = [originalItemIndex]
     
     // always update the item's position first:
+    
+    // WHILE DRAGGING, THE DRAG GESTURE DOES NOT UPDATE THE ACTUAL POSITIONS OF THE ITEMS;
+    // ONLY THE GROUP-BASED SNAP CAN DO THAT.
+    // INSTEAD, WE ACCUMULATE THE X-TRANSLATIONS IN CURSOR DRAG,
+    // WHICH DETERMINES WHICH GROUP GETS PROPOSED.
     item.location = updatePosition(
         translation: translation,
         location: item.previousLocation,
@@ -1059,15 +1064,20 @@ func getItemsAbove(_ item: RectItem, _ items: RectItems) -> RectItems {
 // if so, use that child's indentation level and parentId
 func findDeepestParent(_ item: RectItem, // the moved-item
 //                       _ items: RectItems) -> ProposedGroup? {
-                       _ masterList: MasterList) -> ProposedGroup? {
+                       _ masterList: MasterList,
+                       cursorDrag: CursorDrag) -> ProposedGroup? {
     
     var proposed: ProposedGroup? = nil
     
     log("findDeepestParent: item.id: \(item.id)")
     log("findDeepestParent: item.location.x: \(item.location.x)")
+    log("findDeepestParent: cursorDrag: \(cursorDrag)")
     
     let items = masterList.items
     let excludedGroups = masterList.excludedGroups
+    
+//    let itemLocationX = item.location.x
+    let itemLocationX = cursorDrag.x
     
     for itemAbove in getItemsAbove(item, items) {
         log("findDeepestParent: itemAbove.id: \(itemAbove.id)")
@@ -1075,7 +1085,8 @@ func findDeepestParent(_ item: RectItem, // the moved-item
         // ie is this dragged item at, or east of, the above item?
 //        if item.location.x >= itemAbove.location.x {
         
-        if item.location.x > itemAbove.location.x {
+//        if item.location.x > itemAbove.location.x {
+        if itemLocationX > itemAbove.location.x {
             // ^^ has to be >, not >=, because = is top level in some cases?
             
         
@@ -1169,7 +1180,8 @@ func blockedByTopLevelItemImmediatelyAbove(_ item: RectItem,
 func proposeGroup(_ item: RectItem, // the moved-item
 //                  _ items: RectItems) -> ProposedGroup? {
                   _ masterList: MasterList,
-                  _ draggedAlongCount: Int) -> ProposedGroup? {
+                  _ draggedAlongCount: Int,
+                  cursorDrag: CursorDrag) -> ProposedGroup? {
     
     let items = masterList.items
     
@@ -1177,7 +1189,10 @@ func proposeGroup(_ item: RectItem, // the moved-item
     
     // General rule:
     
-    var proposed = findDeepestParent(item, masterList)
+    var proposed = findDeepestParent(item,
+                                     masterList,
+                                     cursorDrag: cursorDrag)
+    
     log("proposeGroup: proposed from trying to find deepest parent: \(proposed)")
     
     // Exceptions:
@@ -1369,42 +1384,101 @@ func setXLocationByIndentation(_ item: RectItem,
 // accepts `parentIndentation`
 // eg a child of a top level item will receive `parentIndentation = 50`
 // and so child's x location must always be 50 greater than its parent
+
+
+struct CursorDrag: Codable, Equatable {
+    var x: CGFloat
+    var previousX: CGFloat
+    
+    // called at start of a drag gesture
+    static func fromItem(_ item: RectItem) -> CursorDrag {
+        CursorDrag(x: item.location.x,
+                   previousX: item.previousLocation.x)
+    }
+    
+//    var indentationLevel: IndentationLevel {
+//        // use current x, or previous x?
+//        IndentationLevel((x))
+//    }
+}
+
+// previously, we let this
 func updatePosition(translation: CGSize,
                     // usually: previousPosition
                     location: CGPoint,
                     //
                     parentIndentation: CGFloat?) -> CGPoint {
     
-    var adjustedX = translation.width + location.x
-    
-
-    log("updatePosition: adjustedX: \(adjustedX)")
-    // we can ever go West; can only drag East
-    if adjustedX < 0 {
-        log("updatePosition: tried to drag West; will correct to x = 0")
-        adjustedX = 0
-    }
-    
-    let EAST_LIMIT = 6 * CGFloat(INDENTATION_LEVEL)
-    
-    // if we're farther east than eg 5 indentation levels, then just don't let it move that far?
-    if adjustedX > EAST_LIMIT {
-        log("updatePosition: too far east; will limit")
-        adjustedX = EAST_LIMIT
-    }
-    
+//    var adjustedX = translation.width + location.x
+//
+//    log("updatePosition: adjustedX: \(adjustedX)")
+//    // we can ever go West; can only drag East
+//    if adjustedX < 0 {
+//        log("updatePosition: tried to drag West; will correct to x = 0")
+//        adjustedX = 0
+//    }
+//
+//    let EAST_LIMIT = 6 * CGFloat(INDENTATION_LEVEL)
+//
+//    // if we're farther east than eg 5 indentation levels, then just don't let it move that far?
+//    if adjustedX > EAST_LIMIT {
+//        log("updatePosition: too far east; will limit")
+//        adjustedX = EAST_LIMIT
+//    }
     
     
-    // We must always be 50 points east of our parent
-    if let parentIndentation = parentIndentation {
-        log("updatePosition: had parent indentation of \(parentIndentation)")
-        adjustedX = parentIndentation + CGFloat(INDENTATION_LEVEL)
-    }
+    
+//    // We must always be 50 points east of our parent
+//    if let parentIndentation = parentIndentation {
+//        log("updatePosition: had parent indentation of \(parentIndentation)")
+//        adjustedX = parentIndentation + CGFloat(INDENTATION_LEVEL)
+//    }
     
     //    CGPoint(x: translation.width + location.x,
-    return CGPoint(x: adjustedX,
+//    return CGPoint(x: adjustedX,
+    return CGPoint(x: location.x, // NEVER adjust
                    y: translation.height + location.y)
 }
+
+//func updatePosition(translation: CGSize,
+//                    // usually: previousPosition
+//                    location: CGPoint,
+//                    //
+//                    parentIndentation: CGFloat?) -> CGPoint {
+//
+//    var adjustedX = translation.width + location.x
+//
+//
+//    log("updatePosition: adjustedX: \(adjustedX)")
+//    // we can ever go West; can only drag East
+//    if adjustedX < 0 {
+//        log("updatePosition: tried to drag West; will correct to x = 0")
+//        adjustedX = 0
+//    }
+//
+//    let EAST_LIMIT = 6 * CGFloat(INDENTATION_LEVEL)
+//
+//    // if we're farther east than eg 5 indentation levels, then just don't let it move that far?
+//    if adjustedX > EAST_LIMIT {
+//        log("updatePosition: too far east; will limit")
+//        adjustedX = EAST_LIMIT
+//    }
+//
+//
+//
+//    // We must always be 50 points east of our parent
+//    if let parentIndentation = parentIndentation {
+//        log("updatePosition: had parent indentation of \(parentIndentation)")
+//        adjustedX = parentIndentation + CGFloat(INDENTATION_LEVEL)
+//    }
+//
+//    //    CGPoint(x: translation.width + location.x,
+//    return CGPoint(x: adjustedX,
+//                   y: translation.height + location.y)
+//}
+
+
+
 
 // eg given some existing items, with various positions,
 
@@ -1543,17 +1617,21 @@ func onDragged(_ item: RectItem, // assumes we've already
                _ translation: CGSize,
 //               _ items: [RectItem]) -> (RectItems, ProposedGroup?) {
 //               _ masterList: MasterList) -> (MasterList, ProposedGroup?) {
-               _ masterList: MasterList) -> (MasterList, ProposedGroup?, BeingDraggedItem) {
+//               _ masterList: MasterList) -> (MasterList, ProposedGroup?, BeingDraggedItem) {
+               _ masterList: MasterList) -> (MasterList,
+                                             ProposedGroup?,
+                                             BeingDraggedItem,
+                                             CursorDrag) {
     
-    print("onDragged called")
+    log("onDragged called")
     var item = item
 //    var items = items
 //    var items = items
     var masterList = masterList
     
-    print("onDragged: item was: \(item)")
-//    print("onDragged: items was: \(items)")
-    print("onDragged: masterList was: \(masterList)")
+    log("onDragged: item was: \(item)")
+//    log("onDragged: items was: \(items)")
+    log("onDragged: masterList was: \(masterList)")
     
 //    let originalItemIndex = items.firstIndex { $0.id == item.id }!
     let originalItemIndex = masterList.items.firstIndex { $0.id == item.id }!
@@ -1570,6 +1648,12 @@ func onDragged(_ item: RectItem, // assumes we've already
         draggedAlong: draggedAlong,
         // only non-nil when updating position of item's children
         parentIndentation: nil)
+    
+    var cursorDrag = CursorDrag.fromItem(item)
+    log("onDragged: cursorDrag was: \(cursorDrag)")
+    cursorDrag.x = cursorDrag.previousX + translation.width
+    log("onDragged: cursorDrag is now: \(cursorDrag)")
+    
     
 //    items = newItems
     masterList.items = newItems
@@ -1610,13 +1694,13 @@ func onDragged(_ item: RectItem, // assumes we've already
     let updatedOriginalIndex = item.itemIndex(masterList.items)
     item = masterList.items[updatedOriginalIndex]
     
-    let proposed = proposeGroup(item, masterList, draggedAlong.count)
+    let proposed = proposeGroup(item, masterList, draggedAlong.count, cursorDrag: cursorDrag)
     
     let beingDragged = BeingDraggedItem(current: item.id,
                                         draggedAlong: draggedAlong)
     
     log("onDrag: beingDragged: \(beingDragged)")
-    return (masterList, proposed, beingDragged)
+    return (masterList, proposed, beingDragged, cursorDrag)
 }
 
 
@@ -1689,6 +1773,8 @@ struct RectView2: View {
 //    @Binding var current: ItemId?
     @Binding var current: BeingDraggedItem?
     @Binding var proposedGroup: ProposedGroup?
+    @Binding var cursorDrag: CursorDrag?
+    
     var isClosed: Bool
     
     var body: some View {
@@ -1745,7 +1831,8 @@ struct RectView2: View {
                 item.zIndex = 9999
                 
 //                let (newMasterList, proposed) = onDragged(
-                let (newMasterList, proposed, beingDragged) = onDragged(
+//                let (newMasterList, proposed, beingDragged) = onDragged(
+                let (newMasterList, proposed, beingDragged, newCursorDrag) = onDragged(
                     item, // this dragged item
                     value.translation, // drag data
                     // ALL items
@@ -1754,6 +1841,7 @@ struct RectView2: View {
                 current = beingDragged
                 masterList = newMasterList
                 proposedGroup = proposed
+                cursorDrag = newCursorDrag
             })
                         .onEnded({ _ in
                 print("onEnded: \(item.id)")
@@ -1778,6 +1866,7 @@ struct RectView2: View {
                 proposedGroup = nil
                 // and reset current dragging item
                 current = nil
+                cursorDrag = nil
                 
             })
             ) // gesture
@@ -1798,6 +1887,10 @@ struct ContentView: View {
     // non-nil = deepested nested group possible to join,
     // based on dragged-item's current x position
     @State var proposedGroup: ProposedGroup? = nil
+    
+    // nil when not dragging
+    // non-nil when dragging
+    @State var cursorDrag: CursorDrag? = nil
     
     var body: some View {
         ZStack {
@@ -1831,6 +1924,7 @@ struct ContentView: View {
                           masterList: $masterList,
                           current: $current,
                           proposedGroup: $proposedGroup,
+                          cursorDrag: $cursorDrag,
                           isClosed: masterList.collapsedGroups.contains(d.id))
 //                    .transition(.slide)
 //                    .transition(.move(edge: .top))
