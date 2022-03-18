@@ -994,9 +994,11 @@ func groupFromChildBelow(_ item: RectItem,
 //    let indexBelow: Int = movedItemIndex + 1
     let indexBelow: Int = entireIndex + 1
     
-//    log("groupFromChildBelow: movedItemIndex: \(movedItemIndex)")
-//    log("groupFromChildBelow: entireIndex: \(entireIndex)")
-//    log("groupFromChildBelow: indexBelow: \(indexBelow)")
+    log("groupFromChildBelow: movedItemIndex: \(movedItemIndex)")
+    log("groupFromChildBelow: entireIndex: \(entireIndex)")
+    log("groupFromChildBelow: indexBelow: \(indexBelow)")
+    // ^^ when you're dragging along eg
+    
     
     // can't just say "item immediately below",
     // since when moving a group, that might be the group's own child
@@ -1013,16 +1015,23 @@ func groupFromChildBelow(_ item: RectItem,
 //       parentOfItemBelow != item.id {
     
         parentOfItemBelow != item.id,
-       itemBelow.location.x >= item.location.x,
-       // make sure it's not a closed group that we're proposing!
+//       itemBelow.location.x >= item.location.x,
+//       itemBelow.previousLocation.x >= item.previousLocation.x,
+        itemBelow.indentationLevel.value >= item.indentationLevel.value,
+       
+        // make sure it's not a closed group that we're proposing!
        !excludedGroups[parentOfItemBelow].isDefined
+        
+        
     
     {
         // ^^ the identation level of the item below must be at or farther east of the dragged-item;
         // otherwise the item below might be something outside of our group / indentation
         
+        log("groupFromChildBelow: itemBelow: \(itemBelow)")
+        log("groupFromChildBelow: parentOfItemBelow: \(parentOfItemBelow)")
         
-//        log("groupFromChildBelow: found child below")
+        log("groupFromChildBelow: found child below")
         return ProposedGroup(parentId: itemBelow.parentId!,
                              xIndentation: itemBelow.location.x)
     } else {
@@ -1159,7 +1168,8 @@ func blockedByTopLevelItemImmediatelyAbove(_ item: RectItem,
 
 func proposeGroup(_ item: RectItem, // the moved-item
 //                  _ items: RectItems) -> ProposedGroup? {
-                  _ masterList: MasterList) -> ProposedGroup? {
+                  _ masterList: MasterList,
+                  _ draggedAlongCount: Int) -> ProposedGroup? {
     
     let items = masterList.items
     
@@ -1184,7 +1194,8 @@ func proposeGroup(_ item: RectItem, // the moved-item
     
     // if the dragged-item has an item below it, or above it,
     //
-    let movedItemChildrenCount = childrenForParent(parentId: item.id, items).count
+//    let movedItemChildrenCount = childrenForParent(parentId: item.id, items).count
+    let movedItemChildrenCount = draggedAlongCount
     
     if let groupDueToChildBelow = groupFromChildBelow(item,
                                                       items,
@@ -1599,7 +1610,7 @@ func onDragged(_ item: RectItem, // assumes we've already
     let updatedOriginalIndex = item.itemIndex(masterList.items)
     item = masterList.items[updatedOriginalIndex]
     
-    let proposed = proposeGroup(item, masterList)
+    let proposed = proposeGroup(item, masterList, draggedAlong.count)
     
     let beingDragged = BeingDraggedItem(current: item.id,
                                         draggedAlong: draggedAlong)
@@ -1656,6 +1667,21 @@ func onDragEnded(_ item: RectItem,
 
 // // MARK: VIEWS
 
+let CHEVRON_GROUP_OPEN = "chevron.down"
+
+// view closed
+let CHEVRON_GROUP_CLOSED =  "chevron.right"
+
+struct RectViewChevron: View {
+    
+    let isClosed: Bool
+    
+    var body: some View {
+        Image(systemName: isClosed ? CHEVRON_GROUP_CLOSED : CHEVRON_GROUP_OPEN)
+            .animation(.default, value: isClosed)
+    }
+}
+
 struct RectView2: View {
     
     var item: RectItem
@@ -1689,6 +1715,7 @@ struct RectView2: View {
                     
                     if hasChildren(item.id, masterList) {
                         Text("\(isClosed ? "OPEN" : "CLOSE")").offset(x: 40)
+//                        RectViewChevron(isClosed: isClosed).offset(x: 40)
                             .onTapGesture {
                                 log("onTap...")
                                 if isClosed {
@@ -1787,16 +1814,55 @@ struct ContentView: View {
             }
             .offset(x: 500)
             
+            
+            
             ForEach(masterList.items, id: \.id.value) { (d: RectItem) in
+                
+                let parent = d.parentId
+                let parentPosition = parent
+                    .map { retrieveItem($0, masterList.items) }?.location.y ?? d.location.y
+                
+                let closedParentId = ItemId(1)
+                
+                let parentY = retrieveItem(
+                    closedParentId, masterList.items).location.y
+                
                 RectView2(item: d,
                           masterList: $masterList,
                           current: $current,
                           proposedGroup: $proposedGroup,
                           isClosed: masterList.collapsedGroups.contains(d.id))
+//                    .transition(.slide)
+//                    .transition(.move(edge: .top))
+                
+//                    .transition(
+////                        AnyTransition.opacity
+//                        AnyTransition
+//                         // move to the position of the closed or open parent?
+//                            .offset(CGSize(width: 0,
+////                                           height: -500))
+////                                           height: -parentPosition))
+//                                           height: -parentY))
+//
+//                            .combined(with: .opacity)
+//                            .combined(with: .move(edge: .top))
+//
+//                    ) // .transition
+                
                     .zIndex(Double(d.zIndex))
             } // ForEach
         } // ZStack
-        .animation(.default)
+//        .animation(.default)
+        .animation(.default, value: masterList)
+        
+//        .animation(.default, value: masterList)
+//        .animation(.spring(), value: masterList)
+//        .animation(.easeIn, value: masterList)
+        
+//        .animation(.linear(duration: 0.2), value: masterList)
+        
+//        .animation(.easeInOut, value: masterList)
+        
 //        .offset(x: -200, y: -300)
         .offset(x: -200, y: -500)
     }
@@ -1875,21 +1941,21 @@ let sampleColors3: [MyColor] = [
 ]
 
 let sampleColors4: [MyColor] = [
-//    MyColor(color: .red),
+    MyColor(color: .red),
     MyColor(color: .blue, children: [
         MyColor(color: .black),
         MyColor(color: .brown, children: [
             MyColor(color: .cyan),
-//            MyColor(color: .purple)
+            MyColor(color: .purple)
 
         ]),
         MyColor(color: .indigo, children: [
             MyColor(color: .orange),
-//            MyColor(color: .gray),
+            MyColor(color: .gray),
         ]),
     ]),
-//    MyColor(color: .green),
-//    MyColor(color: .yellow)
+    MyColor(color: .green),
+    MyColor(color: .yellow)
 ]
 
 //let sampleColors4: [MyColor] = [
@@ -1912,10 +1978,10 @@ let sampleColors4: [MyColor] = [
 func generateData() -> MasterList {
     MasterList.fromColors(
 //                sampleColors0
-        sampleColors1
+//        sampleColors1
 //        sampleColors2
 //        sampleColors3
-//        sampleColors4
+        sampleColors4
     )
 }
 
