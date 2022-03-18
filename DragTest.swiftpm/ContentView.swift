@@ -43,6 +43,10 @@ struct ProposedGroup: Equatable {
     // better?: use `IndentationLevel`
     // ie aboveItem.location.x
     let xIndentation: CGFloat
+    
+    var indentationLevel: IndentationLevel {
+        IndentationLevel.fromXLocation(x: xIndentation)
+    }
 }
 
 struct IndentationLevel: Equatable {
@@ -1245,7 +1249,7 @@ func moveItemIntoGroup(_ item: RectItem,
     var item = item
     var items = items
     
-    let originalItem = item
+//    let originalItem = item
     
     item.parentId = proposedGroup.parentId
     item.location.x = proposedGroup.xIndentation
@@ -1253,6 +1257,7 @@ func moveItemIntoGroup(_ item: RectItem,
     // update previousLocation too
 //    item.previousLocation = item.location
     // ^ ?: DON'T DO THIS, now that you're running this is onDrag instead of onDragEnded
+    log("moveItemIntoGroup: proposedGroup: \(proposedGroup)")
     
     log("moveItemIntoGroup: item.location.x: \(item.location.x)")
     items = updateItem(item, items)
@@ -1260,7 +1265,8 @@ func moveItemIntoGroup(_ item: RectItem,
     
     return maybeSnapDescendants(updatedItem,
                                 items,
-                                draggedAlong: draggedAlong)
+                                draggedAlong: draggedAlong,
+                                startingIndentationLevel: proposedGroup.indentationLevel)
     
 }
 
@@ -1293,14 +1299,18 @@ func moveItemToTopLevel(_ item: RectItem,
     
     return maybeSnapDescendants(updatedItem,
                                 items,
-                                draggedAlong: draggedAlong)
+                                draggedAlong: draggedAlong,
+                                startingIndentationLevel: IndentationLevel(0))
     
 }
 
 
 func maybeSnapDescendants(_ item: RectItem,
                           _ items: RectItems,
-                          draggedAlong: ItemIdSet) -> RectItems {
+                          draggedAlong: ItemIdSet,
+                          startingIndentationLevel: IndentationLevel) -> RectItems {
+    
+    log("maybeSnapDescendants: item at start: \(item)")
     
 //    let descendants = getDescendants(item, items)
     let descendants = items.filter { draggedAlong.contains($0.id) }
@@ -1321,7 +1331,12 @@ func maybeSnapDescendants(_ item: RectItem,
     // starts: parent indentation + 1
     // ^^ does this assume its top level?
     //    var indentationLevel = IndentationLevel(0).inc()
-    var indentationLevel = item.indentationLevel.inc()
+    
+    // indentation level is relying on previous position,
+    // which is never updated during onDrag;
+    // instead, use the startingIndentationLevel from the proposedGroup
+//    var indentationLevel = item.indentationLevel.inc()
+    var indentationLevel = startingIndentationLevel.inc()
     var currentParentId = item.id
     
     log("maybeSnapDescendants: indentationLevel at start: \(indentationLevel)")
@@ -1366,6 +1381,7 @@ func maybeSnapDescendants(_ item: RectItem,
         }
         
         var child = child
+        log("maybeSnapDescendants: child location BEFORE setXLocationByIndentation: \(child.location.x)")
         child = setXLocationByIndentation(child, indentationLevel)
         log("maybeSnapDescendants: child location after setXLocationByIndentation: \(child.location.x)")
         items = updateItem(child, items)
@@ -1377,6 +1393,7 @@ func maybeSnapDescendants(_ item: RectItem,
 
 func setXLocationByIndentation(_ item: RectItem,
                                _ indentationLevel: IndentationLevel) -> RectItem {
+    
     var item = item
     item.location.x = indentationLevel.toXLocation
     
@@ -1704,7 +1721,7 @@ func onDragged(_ item: RectItem, // assumes we've already
     // or is it okay since we just need t
     
     if let proposed = proposed {
-        log("onDragEnded: had proposed: \(proposed)")
+        log("onDragged: had proposed: \(proposed)")
         let updatedItem = masterList.items.first { $0.id == item.id }!
         masterList.items = moveItemIntoGroup(updatedItem,
                                              masterList.items,
@@ -1716,19 +1733,14 @@ func onDragged(_ item: RectItem, // assumes we've already
     // 1. reset done-dragging item's x to `0`
     // 2. set item's parent to nil
     else {
-        log("onDragEnded: no proposed group; will snap to top level")
+        log("onDragged: no proposed group; will snap to top level")
         let updatedItem = masterList.items.first { $0.id == item.id }!
         masterList.items = moveItemToTopLevel(updatedItem,
                                               masterList.items,
                                               draggedAlong: draggedAlong)
     }
     
-    
-    
-    
     return (masterList, proposed, beingDragged, cursorDrag)
-    
-    
 }
 
 
@@ -2111,10 +2123,10 @@ let sampleColors4: [MyColor] = [
 func generateData() -> MasterList {
     MasterList.fromColors(
 //                sampleColors0
-        sampleColors1
+//        sampleColors1
 //        sampleColors2
 //        sampleColors3
-//        sampleColors4
+        sampleColors4
     )
 }
 
