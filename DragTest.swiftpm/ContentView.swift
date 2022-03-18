@@ -781,16 +781,16 @@ func hasChildren(_ parentId: ItemId, _ masterList: MasterList) -> Bool {
 
     if let x = masterList.items.first(where: { $0.id == parentId }),
        x.isGroup {
-//        log("hasChildren: true because isGroup")
+        log("hasChildren: true because isGroup")
         return true
     } else if masterList.excludedGroups[parentId].isDefined {
-//        log("hasChildren: true because has entry in excludedGroups")
+        log("hasChildren: true because has entry in excludedGroups")
         return true
     } else if !childrenForParent(parentId: parentId, masterList.items).isEmpty {
-//        log("hasChildren: true because has non-empty children in on-screen items")
+        log("hasChildren: true because has non-empty children in on-screen items")
         return true
     } else {
-//        log("hasChildren: false....")
+        log("hasChildren: false....")
         return false
     }
 }
@@ -1149,7 +1149,8 @@ func findDeepestParent(_ item: RectItem, // the moved-item
             log("findDeepestParent: found proposed: \(proposed)")
             log("findDeepestParent: ... for itemAbove: \(itemAbove.id)")
         } else {
-            log("\(item.id) was not at/east of itemAbove \(itemAbove.id)")
+            log("item \(item.id) was not at/east of itemAbove \(itemAbove.id)")
+            
         }
     }
     log("findDeepestParent: final proposed: \(proposed)")
@@ -1160,22 +1161,30 @@ func findDeepestParent(_ item: RectItem, // the moved-item
 // good, BUT: if the top level item is itself a parent, then w
 // should be: is blocked by a child-less top-level item immediately above
 // ... possibly don't even need this function anymore ...
+
+// If blocked by a top level item immediately above,
+// then
 func blockedByTopLevelItemImmediatelyAbove(_ item: RectItem,
                                            _ items: RectItems) -> Bool {
     
+    // is this really accurate?
     let index = item.itemIndex(items)
     if let immediatelyAbove = items[safeIndex: index - 1],
        // `parentId: nil` = item is top level
-       !immediatelyAbove.parentId.isDefined,
+       !immediatelyAbove.parentId.isDefined
+    {
+        // , {
        
-        // if the item above us were a group,
-        // then we'd propose that
-        !immediatelyAbove.isGroup {
+        // ALLOW A TOP LEVEL ITEM TO BE PROPOSED?
+        
+//        // if the item above us were a group,
+//        // then we'd propose that
+//        !immediatelyAbove.isGroup {
+        
         
         // `empty children` = item is not a parent to anything
 //       childrenForParent(parentId: immediatelyAbove.id, items).isEmpty {
-        
-        log("blocked by child-less top-level item immediately above")
+        log("blocked by child-less top-level item immediately above: immediatelyAbove: \(immediatelyAbove)")
         return true
     }
     return false
@@ -1224,8 +1233,6 @@ func proposeGroup(_ item: RectItem, // the moved-item
         log("found group \(groupDueToChildBelow.parentId) from child below")
         proposed = groupDueToChildBelow
     }
-    
-    
     
     log("proposeGroup: returning: \(proposed)")
     return proposed
@@ -1310,12 +1317,12 @@ func maybeSnapDescendants(_ item: RectItem,
                           draggedAlong: ItemIdSet,
                           startingIndentationLevel: IndentationLevel) -> RectItems {
     
-    log("maybeSnapDescendants: item at start: \(item)")
+//    log("maybeSnapDescendants: item at start: \(item)")
     
 //    let descendants = getDescendants(item, items)
     let descendants = items.filter { draggedAlong.contains($0.id) }
-    log("maybeSnapDescendants: draggedAlong by id: \(draggedAlong.map(\.id))")
-    log("maybeSnapDescendants: descendants by id: \(descendants.map(\.id))")
+//    log("maybeSnapDescendants: draggedAlong by id: \(draggedAlong.map(\.id))")
+//    log("maybeSnapDescendants: descendants by id: \(descendants.map(\.id))")
     
     if descendants.isEmpty {
         log("maybeSnapDescendants: no children for this now-top-level item \(item.id); exiting early")
@@ -1346,9 +1353,9 @@ func maybeSnapDescendants(_ item: RectItem,
         
         log("maybeSnapDescendants: on child: \(child.id), \(child.color), \(child.location.x), parentId: \(child.parentId)")
         
-        log("maybeSnapDescendants: CURRENT: indentationLevel: \(indentationLevel)")
-        log("maybeSnapDescendants: CURRENT: indentationLevel.toXLocation: \(indentationLevel.toXLocation)")
-        log("maybeSnapDescendants: CURRENT: currentParentId: \(currentParentId)")
+//        log("maybeSnapDescendants: CURRENT: indentationLevel: \(indentationLevel)")
+//        log("maybeSnapDescendants: CURRENT: indentationLevel.toXLocation: \(indentationLevel.toXLocation)")
+//        log("maybeSnapDescendants: CURRENT: currentParentId: \(currentParentId)")
         
 //        log("maybeSnapDescendants: on child: \(child)")
         // if we've changed parent ids, then we're on a new nesting level
@@ -1365,7 +1372,7 @@ func maybeSnapDescendants(_ item: RectItem,
             // compare against child's indentation level,
             // which is not changed until the very end of onDragEnded
             if child.indentationLevel.value > indentationLevel.value {
-                log("maybeSnapDescendants: child was east")
+//                log("maybeSnapDescendants: child was east")
                 indentationLevel = indentationLevel.inc()
             }
             
@@ -1373,17 +1380,17 @@ func maybeSnapDescendants(_ item: RectItem,
             // so we backed out a level
 //            else if child.location.x < indentationLevel.toXLocation {
             else if child.indentationLevel.value < indentationLevel.value {
-                log("maybeSnapDescendants: child was west")
+//                log("maybeSnapDescendants: child was west")
                 indentationLevel = indentationLevel.dec()
             } else {
-                log("maybeSnapDescendants: child was aligned")
+//                log("maybeSnapDescendants: child was aligned")
             }
         }
         
         var child = child
-        log("maybeSnapDescendants: child location BEFORE setXLocationByIndentation: \(child.location.x)")
+//        log("maybeSnapDescendants: child location BEFORE setXLocationByIndentation: \(child.location.x)")
         child = setXLocationByIndentation(child, indentationLevel)
-        log("maybeSnapDescendants: child location after setXLocationByIndentation: \(child.location.x)")
+//        log("maybeSnapDescendants: child location after setXLocationByIndentation: \(child.location.x)")
         items = updateItem(child, items)
     }
     
