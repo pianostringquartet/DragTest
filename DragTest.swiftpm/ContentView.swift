@@ -1251,7 +1251,8 @@ func moveItemIntoGroup(_ item: RectItem,
     item.location.x = proposedGroup.xIndentation
     
     // update previousLocation too
-    item.previousLocation = item.location
+//    item.previousLocation = item.location
+    // ^ ?: DON'T DO THIS, now that you're running this is onDrag instead of onDragEnded
     
     log("moveItemIntoGroup: item.location.x: \(item.location.x)")
     items = updateItem(item, items)
@@ -1281,7 +1282,8 @@ func moveItemToTopLevel(_ item: RectItem,
     item.location.x = 0
     
     // update previousLocation too
-    item.previousLocation = item.location
+//    item.previousLocation = item.location
+    // ^^ don't do this now that you're calling this fn in onDrag
     
     log("moveItemToTopLevel: item.location.x: \(item.location.x)")
     log("moveItemToTopLevel: item.parentId: \(item.parentId)")
@@ -1700,7 +1702,38 @@ func onDragged(_ item: RectItem, // assumes we've already
                                         draggedAlong: draggedAlong)
     
     log("onDrag: beingDragged: \(beingDragged)")
+    
+    
+    // Now we have to SNAP to the proposed group WHILE we're still dragging
+    // .... do you need to pass on down anything, eg the positon of the cursorDrag?
+    // or is it okay since we just need t
+    
+    if let proposed = proposed {
+        log("onDragEnded: had proposed: \(proposed)")
+        let updatedItem = masterList.items.first { $0.id == item.id }!
+        masterList.items = moveItemIntoGroup(updatedItem,
+                                             masterList.items,
+                                             draggedAlong: draggedAlong,
+                                             proposed)
+    }
+
+    // if no proposed group, then we moved item to top level:
+    // 1. reset done-dragging item's x to `0`
+    // 2. set item's parent to nil
+    else {
+        log("onDragEnded: no proposed group; will snap to top level")
+        let updatedItem = masterList.items.first { $0.id == item.id }!
+        masterList.items = moveItemToTopLevel(updatedItem,
+                                              masterList.items,
+                                              draggedAlong: draggedAlong)
+    }
+    
+    
+    
+    
     return (masterList, proposed, beingDragged, cursorDrag)
+    
+    
 }
 
 
@@ -1717,31 +1750,42 @@ func onDragEnded(_ item: RectItem,
     items = setYPositionByIndices(items, isDragEnded: true)
 //    print("onDragEnded: updated items: \(items)")
     
+    let allDragged: ItemIds = [item.id] + Array(draggedAlong)
+    
+    // update both the X and Y in the previousLocation of the items that were moved;
+    // ie `item` AND every id in `draggedAlong`
+    for draggedId in allDragged {
+        var draggedItem = retrieveItem(draggedId, items)
+        draggedItem.previousLocation = draggedItem.location
+        items = updateItem(draggedItem, items)
+    }
+    
+    
     // now that we've finalized the y-position of the items,
     // we need to potentially:
     // 1: add a parent id to the done-dragging item
     // 2: adjust done-dragging item's x-indentation
     // LATER?: also update an existing groups dict?
-    if let proposed = proposed {
-        log("onDragEnded: had proposed: \(proposed)")
-        let updatedItem = items.first { $0.id == item.id }!
-        items = moveItemIntoGroup(updatedItem,
-                                  items,
-                                  draggedAlong: draggedAlong,
-                                  proposed)
-    }
-    
-    // if no proposed group, then we moved item to top level:
-    // 1. reset done-dragging item's x to `0`
-    // 2. set item's parent to nil
-    else {
-        log("onDragEnded: no proposed group; will snap to top level")
-        let updatedItem = items.first { $0.id == item.id }!
-        items = moveItemToTopLevel(updatedItem,
-                                   items,
-                                   draggedAlong: draggedAlong)
-    }
-    
+//    if let proposed = proposed {
+//        log("onDragEnded: had proposed: \(proposed)")
+//        let updatedItem = items.first { $0.id == item.id }!
+//        items = moveItemIntoGroup(updatedItem,
+//                                  items,
+//                                  draggedAlong: draggedAlong,
+//                                  proposed)
+//    }
+//
+//    // if no proposed group, then we moved item to top level:
+//    // 1. reset done-dragging item's x to `0`
+//    // 2. set item's parent to nil
+//    else {
+//        log("onDragEnded: no proposed group; will snap to top level")
+//        let updatedItem = items.first { $0.id == item.id }!
+//        items = moveItemToTopLevel(updatedItem,
+//                                   items,
+//                                   draggedAlong: draggedAlong)
+//    }
+//
     print("onDragEnded: final items by color: \(items.map(\.color))")
     print("onDragEnded: final items by color: \(items.map(\.location.x))")
     return items
