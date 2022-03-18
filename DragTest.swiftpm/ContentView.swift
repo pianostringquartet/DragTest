@@ -1379,7 +1379,11 @@ func setXLocationByIndentation(_ item: RectItem,
                                _ indentationLevel: IndentationLevel) -> RectItem {
     var item = item
     item.location.x = indentationLevel.toXLocation
-    item.previousLocation = item.location
+    
+    // previousLocation should only be updated in onDragEnded
+    
+//    item.previousLocation = item.location
+//    item.previousLocation.x = item.location.x
     return item
 }
 
@@ -1397,11 +1401,6 @@ struct CursorDrag: Codable, Equatable {
         CursorDrag(x: item.location.x,
                    previousX: item.previousLocation.x)
     }
-    
-//    var indentationLevel: IndentationLevel {
-//        // use current x, or previous x?
-//        IndentationLevel((x))
-//    }
 }
 
 // previously, we let this
@@ -1617,9 +1616,6 @@ func onGroupClosed(closedId: ItemId,
 
 func onDragged(_ item: RectItem, // assumes we've already
                _ translation: CGSize,
-//               _ items: [RectItem]) -> (RectItems, ProposedGroup?) {
-//               _ masterList: MasterList) -> (MasterList, ProposedGroup?) {
-//               _ masterList: MasterList) -> (MasterList, ProposedGroup?, BeingDraggedItem) {
                _ masterList: MasterList) -> (MasterList,
                                              ProposedGroup?,
                                              BeingDraggedItem,
@@ -1643,7 +1639,6 @@ func onDragged(_ item: RectItem, // assumes we've already
 //    let (newItems, newIndices) = updatePositionsHelper(
     let (newItems, newIndices, updatedDraggedAlong) = updatePositionsHelper(
         item,
-//        items,
         masterList.items,
         [],
         translation,
@@ -2116,10 +2111,10 @@ let sampleColors4: [MyColor] = [
 func generateData() -> MasterList {
     MasterList.fromColors(
 //                sampleColors0
-//        sampleColors1
+        sampleColors1
 //        sampleColors2
 //        sampleColors3
-        sampleColors4
+//        sampleColors4
     )
 }
 
