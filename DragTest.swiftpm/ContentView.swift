@@ -2077,17 +2077,30 @@ let sampleColors2: [MyColor] = [
     //    MyColor(color: .yellow)
 ]
 
+//let sampleColors3: [MyColor] = [
+//    MyColor(color: .red),
+//    MyColor(color: .blue, children: [
+//        MyColor(color: .black),
+//        MyColor(color: .brown, children: [
+//            MyColor(color: .cyan),
+//            MyColor(color: .purple, children: [
+//                MyColor(color: .orange),
+//                MyColor(color: .gray),
+//            ]),
+//        ])
+//    ]),
+//    MyColor(color: .green)
+//]
+
 let sampleColors3: [MyColor] = [
-    MyColor(color: .red),
+//    MyColor(color: .red),
     MyColor(color: .blue, children: [
         MyColor(color: .black),
-        MyColor(color: .brown, children: [
-            MyColor(color: .cyan),
-            MyColor(color: .purple, children: [
-                MyColor(color: .orange),
-                MyColor(color: .gray),
-            ]),
-        ])
+        MyColor(color: .orange),
+    ]),
+    MyColor(color: .brown, children: [
+        MyColor(color: .cyan),
+        MyColor(color: .gray),
     ]),
     MyColor(color: .green)
 ]
@@ -2132,8 +2145,8 @@ func generateData() -> MasterList {
 //                sampleColors0
 //        sampleColors1
 //        sampleColors2
-//        sampleColors3
-        sampleColors4
+        sampleColors3
+//        sampleColors4
     )
 }
 
