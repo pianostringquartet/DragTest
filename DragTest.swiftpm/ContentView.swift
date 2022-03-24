@@ -803,23 +803,25 @@ func hasChildren(_ parentId: ItemId, _ masterList: MasterList) -> Bool {
 }
 
 
-// not accurate when we're moving a group
-// because eg we
-
-// ie "To which index did we move the being-dragged item?"
-// the max height (ie high Y; ie lowest position on list)
-// that item can be dragged to is (items.count - 1) - draggedAlong.count
-// ie we ignore the dragged along items
 func getMovedtoIndex(item: RectItem,
                      items: RectItems,
-                     // added
-                     maxIndex: Int) -> Int {
+                     draggedAlong: ItemIdSet) -> Int {
+        
+    var maxIndex = items.count - 1
     
-    // should be not for ALL items, but just the items moved?
-    
-//    let maxIndex = items.count - 1
+    // special case:
+    // if we moved a parent to the end of the items (minus parents' own children),
+    // then don't adjust-by-indices while dragging.
+    if item.isGroup {
+        
+        let itemsWithoutDraggedAlong = items.filter { x in !draggedAlong.contains(x.id) }
+        
+            print("getMovedtoIndex: special case maxIndex: \(maxIndex)")
+            maxIndex = itemsWithoutDraggedAlong.count - 1
+    }
     
     let maxY = maxIndex * VIEW_HEIGHT
+    
 //    print("getMovedtoIndex: item.color: \(item.color)")
     print("getMovedtoIndex: item: \(item)")
     print("getMovedtoIndex: maxY: \(maxY)")
@@ -1159,9 +1161,9 @@ func findDeepestParent(_ item: RectItem, // the moved-item
     
     var proposed: ProposedGroup? = nil
     
-//    log("findDeepestParent: item.id: \(item.id)")
-//    log("findDeepestParent: item.location.x: \(item.location.x)")
-//    log("findDeepestParent: cursorDrag: \(cursorDrag)")
+    log("findDeepestParent: item.id: \(item.id)")
+    log("findDeepestParent: item.location.x: \(item.location.x)")
+    log("findDeepestParent: cursorDrag: \(cursorDrag)")
     
     let items = masterList.items
     let excludedGroups = masterList.excludedGroups
@@ -1170,8 +1172,8 @@ func findDeepestParent(_ item: RectItem, // the moved-item
     let itemLocationX = cursorDrag.x
     
     for itemAbove in getItemsAbove(item, items) {
-//        log("findDeepestParent: itemAbove.id: \(itemAbove.id)")
-//        log("findDeepestParent: itemAbove.location.x: \(itemAbove.location.x)")
+        log("findDeepestParent: itemAbove.id: \(itemAbove.id)")
+        log("findDeepestParent: itemAbove.location.x: \(itemAbove.location.x)")
         // ie is this dragged item at, or east of, the above item?
 //        if item.location.x >= itemAbove.location.x {
         
@@ -1196,7 +1198,7 @@ func findDeepestParent(_ item: RectItem, // the moved-item
             // and NOT use that itemAbove's own parent as our group
             if itemAboveHasChildren,
                !excludedGroups[itemAbove.id].isDefined {
-//                log("found itemAbove that has children; will make being-dragged-item")
+                log("found itemAbove that has children; will make being-dragged-item")
                 
                 // make sure it's not a closed group that we're proposing!
                 
@@ -1211,7 +1213,7 @@ func findDeepestParent(_ item: RectItem, // the moved-item
             
             else if let itemAboveParentId = itemAbove.parentId,
                     !excludedGroups[itemAboveParentId].isDefined {
-//                log("found itemAbove that is part of a group whose parent id is: \(itemAbove.parentId)")
+                log("found itemAbove that is part of a group whose parent id is: \(itemAbove.parentId)")
                 proposed = ProposedGroup(
                     parentId: itemAboveParentId,
                     xIndentation: itemAbove.location.x)
@@ -1222,7 +1224,7 @@ func findDeepestParent(_ item: RectItem, // the moved-item
             // we'll just use the item above now as its parent
 //            else {
             else if !excludedGroups[itemAbove.id].isDefined {
-//                log("found itemAbove without parent")
+                log("found itemAbove without parent")
                 
                 
                 proposed = ProposedGroup(
@@ -1232,14 +1234,14 @@ func findDeepestParent(_ item: RectItem, // the moved-item
                 // ^^^ if item has no parent ie is top level,
                 // then need this indentation to be at least one level
             }
-//            log("findDeepestParent: found proposed: \(proposed)")
-//            log("findDeepestParent: ... for itemAbove: \(itemAbove.id)")
+            log("findDeepestParent: found proposed: \(proposed)")
+            log("findDeepestParent: ... for itemAbove: \(itemAbove.id)")
         } else {
-//            log("findDeepestParent: item \(item.id) was not at/east of itemAbove \(itemAbove.id)")
+            log("findDeepestParent: item \(item.id) was not at/east of itemAbove \(itemAbove.id)")
             
         }
     }
-//    log("findDeepestParent: final proposed: \(proposed)")
+    log("findDeepestParent: final proposed: \(proposed)")
     return proposed
 }
 
@@ -1258,19 +1260,20 @@ func blockedByTopLevelItemImmediatelyAbove(_ item: RectItem,
     if let immediatelyAbove = items[safeIndex: index - 1],
        // `parentId: nil` = item is top level
        !immediatelyAbove.parentId.isDefined
-    {
+        ,
+//    {
         // , {
        
         // ALLOW A TOP LEVEL ITEM TO BE PROPOSED?
         
 //        // if the item above us were a group,
 //        // then we'd propose that
-//        !immediatelyAbove.isGroup {
+        !immediatelyAbove.isGroup {
         
         
         // `empty children` = item is not a parent to anything
 //       childrenForParent(parentId: immediatelyAbove.id, items).isEmpty {
-//        log("blocked by child-less top-level item immediately above: immediatelyAbove: \(immediatelyAbove)")
+        log("blocked by child-less top-level item immediately above: immediatelyAbove: \(immediatelyAbove)")
         return true
     }
     return false
@@ -1284,7 +1287,7 @@ func proposeGroup(_ item: RectItem, // the moved-item
     
     let items = masterList.items
     
-//    log("proposeGroup: will try to propose group for item: \(item.id)")
+    log("proposeGroup: will try to propose group for item: \(item.id)")
     
     // General rule:
     
@@ -1292,7 +1295,7 @@ func proposeGroup(_ item: RectItem, // the moved-item
                                      masterList,
                                      cursorDrag: cursorDrag)
     
-//    log("proposeGroup: proposed from trying to find deepest parent: \(proposed)")
+    log("proposeGroup: proposed from trying to find deepest parent: \(proposed)")
     
     // Exceptions:
     
@@ -1708,61 +1711,22 @@ func onDragged(_ item: RectItem, // item being actively dragged
     print("onDragged: new item: \(item)")
     print("onDragged: newIndices: \(newIndices)")
     
-    let basicMaxIndex = masterList.items.count - 1
-    print("onDragged: basicMaxIndex was: \(basicMaxIndex)")
-    
-    let nonTraditionalMaxIndex = (draggedAlong + [item.id]).count - 1
-    print("onDragged: nonTraditionalMaxIndex was: \(nonTraditionalMaxIndex)")
-    
-    let nonTraditionalMaxIndex2 = basicMaxIndex - draggedAlong.count
-    print("onDragged: nonTraditionalMaxIndex2 was: \(nonTraditionalMaxIndex2)")
-    
-//    let maxIndex = nonTraditionalMaxIndex2
-    let maxIndex = basicMaxIndex
-    
-    
-    // if we moved a parent to the end of the items (minus parents' own children),
-    // then don't adjust-by-indices while dragging
-    let itemsWithoutDraggedAlong = masterList.items.filter { x in !draggedAlong.contains(x.id) }
-    let updatedParentIndex = itemsWithoutDraggedAlong.firstIndex { $0.id == item.id }
-    
-    print("onDragged: itemsWithoutDraggedAlong: \(itemsWithoutDraggedAlong)")
-    print("onDragged: updatedParentIndex: \(updatedParentIndex)")
-    
-    var calculatedIndex = 0
-    if item.isGroup,
-       let parentIndex = updatedParentIndex {
-        log("SPECIAL getMovedtoIndex...")
+//    let basicMaxIndex = masterList.items.count - 1
+//    print("onDragged: basicMaxIndex was: \(basicMaxIndex)")
         
-        // still want to getMovedtoIndex, but the max index will be
-//        masterList.items = maybeMoveIndices(
-//            masterList.items,
-//            indicesMoved: newIndices,
-//            to: calculatedIndex,
-//            originalIndex: originalItemIndex,
-//            maxIndex: itemsWithoutDraggedAlong.count - 1)
-        calculatedIndex = getMovedtoIndex(
-            item: item,
-            items: masterList.items,
-            maxIndex: itemsWithoutDraggedAlong.count - 1)
-    } else {
-        log("might getMovedtoIndex...")
-//        masterList.items = maybeMoveIndices(
-//            masterList.items,
-//            indicesMoved: newIndices,
-//            to: calculatedIndex,
-//            originalIndex: originalItemIndex,
-//            maxIndex: maxIndex)
-        calculatedIndex = getMovedtoIndex(
-            item: item,
-            items: masterList.items,
-            maxIndex: maxIndex)
-    }
+//    let maxIndex = masterList.items.count - 1
+    
+    var calculatedIndex = getMovedtoIndex(
+        item: item,
+        items: masterList.items,
+        draggedAlong: draggedAlong)
     
 //    var calculatedIndex = getMovedtoIndex(
 //        item: item,
 //        items: masterList.items,
 //        maxIndex: maxIndex)
+    
+    let maxIndex = masterList.items.count - 1
     
     print("onDragged: originalItemIndex: \(originalItemIndex)")
     print("onDragged: calculatedIndex was: \(calculatedIndex)")
@@ -1774,14 +1738,6 @@ func onDragged(_ item: RectItem, // item being actively dragged
         maxIndex: maxIndex)
     
     print("onDragged: calculatedIndex is now: \(calculatedIndex)")
-    // ^^ seems okay; both single and parent have calculated index = 3
-    
-    //
-//    let bottomIndex: Int = maxIndex - draggedAlong.count
-    
-  
-    
-    
 
     masterList.items = maybeMoveIndices(
         masterList.items,
@@ -1904,6 +1860,7 @@ struct RectView2: View {
     var rectangle: some View {
         
 //        let isBeingDraggedColor: Color = (current.map { $0 == item.id } ?? false) ? .white : .clear
+        
         let isBeingDraggedColor: Color = (current.map { $0.current == item.id } ?? false) ? .white : .clear
         
         let isProposedGroupColor: Color = (proposedGroup?.parentId == item.id) ? .white : .clear
@@ -1918,26 +1875,10 @@ struct RectView2: View {
                         Text("Id: \(item.id.value)")
                         Text("Parent?: \(item.parentId?.value.description ?? "None")")
                     }
-                    
-//                    if hasChildren(item.id, masterList) {
-////                        Text("\(isClosed ? "OPEN" : "CLOSE")").offset(x: 40)
-//                        RectViewChevron(isClosed: isClosed).offset(x: 40)
-//                            .onTapGesture {
-//                                log("onTap...")
-//                                if isClosed {
-//                                    masterList = onGroupOpened(openedId: item.id, masterList)
-//                                } else {
-//                                    masterList = onGroupClosed(closedId: item.id, masterList)
-//                                }
-//
-//                            }
-//                    }
                 }
                     .scaleEffect(1.4)
             )
-//            .foregroundColor(.white)
             .border(.orange)
-        
             .overlay(alignment: .trailing, content: {
                 HStack {
                     if hasChildren(item.id, masterList) {
@@ -1992,9 +1933,7 @@ struct RectView2: View {
 //                current = item.id
                 var item = item
                 item.zIndex = 9999
-                
-//                let (newMasterList, proposed) = onDragged(
-//                let (newMasterList, proposed, beingDragged) = onDragged(
+
                 let (newMasterList, proposed, beingDragged, newCursorDrag) = onDragged(
                     item, // this dragged item
                     value.translation, // drag data
@@ -2054,6 +1993,32 @@ struct ContentView: View {
     // non-nil when dragging
     @State var cursorDrag: CursorDrag? = nil
     
+    @State var y: CGFloat = 0
+    @State var previousY: CGFloat = 0
+    
+    var body: some View {
+        list
+//            .frame(width: 400, height: 900)
+            .frame(width: 400)
+            .animation(.default, value: masterList)
+            .offset(x: -200, y: -500)
+//            .offset(x: -200, y: y)
+        
+        // DISABLED FOR NOW
+        
+//            .offset(x: -200, y: y - 500)
+//            .contentShape(Rectangle())
+//            .border(.red)
+//            .gesture(DragGesture()
+//                        .onChanged({ value in
+//                print("list drag onChanged")
+//                y = value.translation.height + previousY
+//            }).onEnded({ value in
+//                print("list drag onEnded")
+//                previousY = y
+//            }))
+    }
+    
     var debugHelper: some View {
         VStack {
             Text("RESET").onTapGesture {
@@ -2070,7 +2035,7 @@ struct ContentView: View {
         
     }
     
-    var body: some View {
+    var list: some View {
         ZStack {
             debugHelper
             
@@ -2114,19 +2079,11 @@ struct ContentView: View {
                 
             } // ForEach
         } // ZStack
-//        .frame(width: 400, height: 900)
-        .frame(width: 400)
-        .border(.red)
-        .animation(.default, value: masterList)
-//        .animation(.linear(duration: 0.2), value: masterList)
-                
-//        .offset(x: -200, y: -300)
-//        .frame(width: 400, height: 900)
-        .offset(x: -200, y: -500)
-//        .border(.red)
-        
     }
+    
+    
 }
+
 
 
 // // MARK: SAMPLE DATA
@@ -2253,8 +2210,8 @@ func generateData() -> MasterList {
 //                sampleColors0
 //        sampleColors1
 //        sampleColors2
-        sampleColors3
-//        sampleColors4
+//        sampleColors3
+        sampleColors4
     )
 }
 
