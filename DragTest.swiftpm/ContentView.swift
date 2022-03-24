@@ -15,6 +15,11 @@ func log(_ string: String) {
     print(string)
 }
 
+func logInView(_ log: String) -> EmptyView {
+    print("** \(log)")
+    return EmptyView()
+}
+
 extension Array {
     public subscript(safeIndex index: Int) -> Element? {
         guard index >= 0, index < endIndex else {
@@ -308,124 +313,6 @@ func itemsFromColorHelper(_ color: MyColor,
     
     return (currentHighestIndex, items, nestingLevel)
 }
-
-
-//func itemsFromColorHelper(_ color: MyColor,
-//                          _ currentHighestIndex: Int,
-//                          parentId: ItemId?,
-//                          nestingLevel: Int,
-//                          viewHeight: Int = 100) -> (Int, RectItems, Int) {
-//
-//    print("itemsFromColorHelper: color: \(color)")
-//
-//    var currentHighestIndex = currentHighestIndex
-//    var items = RectItems()
-//    var nestingLevel = nestingLevel
-//
-//    currentHighestIndex += 1
-//
-//    let item = RectItem(id: ItemId(currentHighestIndex),
-//                        color: color.color,
-//                        location: CGPoint(x: (viewHeight/2) * nestingLevel,
-//                                          y: viewHeight * currentHighestIndex),
-//                        parentId: parentId)
-//
-//    items.append(item)
-//
-//    // if we're about to go down another level,
-//    // increment the nesting
-//    if !color.children.isEmpty {
-//        nestingLevel += 1
-//    }
-//
-//    color.children.forEach { childColor in
-//        let (newIndex, newItems, newLevel) = itemsFromColorHelper(
-//            childColor,
-//            currentHighestIndex,
-//            parentId: item.id,
-//            nestingLevel: nestingLevel)
-//
-//        print("itemsFromColorHelper: newIndex: \(newIndex)")
-//        print("itemsFromColorHelper: newItems: \(newItems)")
-//        print("itemsFromColorHelper: newLevel: \(newLevel)")
-//
-//        currentHighestIndex = newIndex
-//        items += newItems
-//        nestingLevel = newLevel
-//    }
-//
-//    return (currentHighestIndex, items, nestingLevel)
-//}
-
-
-// ie ALL the children, even if eg their parentId is not the same as closed parent id;
-// ie any items below this parent with an indentation level GT parent's identation
-// careful here; if you switched this to only use indentation level,
-// then is places like this onDrag, where might have
-
-
-// careful -- this is "every item below and east"
-// but can be "below and east" if eg there was another intervening group
-// so need logic that takes into account the changes in nesting levels
-//func getDescendants(_ parentItem: RectItem,
-//                    //    _ parentXLocation: CGFloat,
-//                    _ items: RectItems) -> RectItems {
-//    // suppose you had two nested groups
-//    // separated
-//    // this could potentially
-//    // Suppose:
-//    // A
-//    log("getDescendants: parentItem: \(parentItem)")
-//    log("getDescendants: parentItem.location.x: \(parentItem.location.x)")
-//    //    items.filter { $0.location.x > parentXLocation }
-//
-//    var descendants = RectItems()
-//
-//    // not all items, but rather only items below!
-//    let itemsBelow = getItemsBelow(parentItem, items)
-//    log("getDescendants: itemsBelow: \(itemsBelow)")
-//
-//    //    for item in items {
-//
-//    var currentIndentationLevel: CGFloat = parentItem.indentationLevel.toXLocation
-//
-//    for item in itemsBelow {
-//        log("itemBelow: \(item.id), \(item.location.x)")
-//        // if you encounter an item at or west of the parentXLocation,
-//        // then you've finished the parent's nested groups
-////        if item.location.x <= parentItem.location.x {
-////            log("getDescendants: exiting early")
-////            log("getDescendants: early exit: descendants: \(descendants)")
-////            return descendants
-////        }
-//
-//        let itemLocation = item.location.x
-//
-//
-//
-//
-//        // if itemBelow is further east than parent, then add it
-//        if (item.location.x > parentItem.location.x) {
-//            log("getDescendants: adding item: \(item.id)")
-//            descendants.append(item)
-//        } else {
-//            log("getDescendants: skipping item that was aligned with or west of parent")
-//            log("getDescendants: early exit: descendants: \(descendants)")
-//        }
-//
-//        // ^^ possibly the parentItem location is incorrect in some cases when moving a group ?
-//        // ie item was east of parentXLocation
-//
-//        // ^^ this is also incorrect when eg
-//
-////        else {
-////            descendants.append(item)
-////        }
-//    }
-//    log("getDescendants: returning: descendants: \(descendants)")
-//    return descendants
-//}
-
 
 func getDescendants(_ parentItem: RectItem,
                     //    _ parentXLocation: CGFloat,
@@ -1625,9 +1512,26 @@ func onGroupClosed(closedId: ItemId,
     print("onGroupClosed called")
     
     let closedParent = retrieveItem(closedId, masterList.items)
+
+    var masterList = masterList
+    
+    // when we close an empty group,
+    // it won't have an eny children,
+    // but we still want it to appear in
+    
     
     if !hasOpenChildren(closedParent, masterList.items) {
-        log("onGroupClosed: \(closedId) had no children; exiting early")
+//        log("onGroupClosed: \(closedId) had no children; exiting early")
+        log("onGroupClosed: \(closedId) had no children; adding empty entry")
+        
+        // since there are no children,
+        // we don't need to update excluded groups?
+        // ... or should we still have some entry there?
+        masterList.collapsedGroups.insert(closedId)
+        masterList.excludedGroups.updateValue([], forKey: closedId)
+        log("onGroupClosed: masterList.collapsedGroups is now: \(masterList.collapsedGroups)")
+        log("onGroupClosed: masterList.excludedGroups is now: \(masterList.excludedGroups)")
+        
         return masterList
     }
     
@@ -1637,7 +1541,7 @@ func onGroupClosed(closedId: ItemId,
     
     let moveUpBy = descendantsCount * VIEW_HEIGHT
     
-    var masterList = masterList
+//    var masterList = masterList
     
     // hide the children:
     // - populates ExcludedGroups
@@ -2036,10 +1940,16 @@ struct ContentView: View {
     }
     
     var list: some View {
+        
+        
         ZStack {
+            logInView("ContentView: body: masterList.collapsedGroups: \(masterList.collapsedGroups)")
             debugHelper
             
             ForEach(masterList.items, id: \.id.value) { (d: RectItem) in
+                
+                let isClosed = masterList.collapsedGroups.contains(d.id)
+                
                 
                 let parent = d.parentId
                 let parentPosition = parent
@@ -2055,7 +1965,7 @@ struct ContentView: View {
                           current: $current,
                           proposedGroup: $proposedGroup,
                           cursorDrag: $cursorDrag,
-                          isClosed: masterList.collapsedGroups.contains(d.id))
+                          isClosed: isClosed)
 //                    .transition(.slide)
 //                    .transition(.move(edge: .top))
                 
@@ -2210,8 +2120,8 @@ func generateData() -> MasterList {
 //                sampleColors0
 //        sampleColors1
 //        sampleColors2
-//        sampleColors3
-        sampleColors4
+        sampleColors3
+//        sampleColors4
     )
 }
 
