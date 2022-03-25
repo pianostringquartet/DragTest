@@ -960,69 +960,58 @@ func maybeMoveIndices(_ items: RectItems,
     }
 }
 
-// grab the first, immediately above parent;
-// furthermore, try to grab
-// grab the most specific (ie deeply indented) parent as possible;
-
-// if a dragged-item has an item below it with a non-nil parent id,
-// then dragged-item sits in the middle of a group and we MUST use that group
+// Grab the item immediately below;
+// if it has a parent (which should be above us),
+// use that parent as the proposed group.
 func groupFromChildBelow(_ item: RectItem,
                          _ items: RectItems,
                          movedItemChildrenCount: Int,
                          excludedGroups: ExcludedGroups) -> ProposedGroup? {
     
+    log("groupFromChildBelow: item: \(item)")
+    
     let movedItemIndex = item.itemIndex(items)
     let entireIndex = movedItemIndex + movedItemChildrenCount
     
-    // must look at the index of the first item BELOW THE ENTIRE BEING-MOVED-ITEM
-//    let indexBelow: Int = movedItemIndex + 1
+    // must look at the index of the first item BELOW THE ENTIRE BEING-MOVED-ITEM-LIST
     let indexBelow: Int = entireIndex + 1
     
-//    log("groupFromChildBelow: movedItemIndex: \(movedItemIndex)")
-//    log("groupFromChildBelow: entireIndex: \(entireIndex)")
-//    log("groupFromChildBelow: indexBelow: \(indexBelow)")
+    log("groupFromChildBelow: movedItemIndex: \(movedItemIndex)")
+    log("groupFromChildBelow: entireIndex: \(entireIndex)")
+    log("groupFromChildBelow: indexBelow: \(indexBelow)")
     // ^^ when you're dragging along eg
     
-    
-    // can't just say "item immediately below",
-    // since when moving a group, that might be the group's own child
-    
-    // instead, have to iterate through EVERY ITEM BELOW;
-    // if we find an item below us that has a parentId,
-    // which is not the same as the being-dragged-item's id,
-    
-    // or more basically?: we have to check the index of the item that comes AFTER the being-dragged-group's children
-    
-    if let itemBelow = items[safeIndex: indexBelow],
-       //       itemBelow.parentId.isDefined {
-       let parentOfItemBelow = itemBelow.parentId,
-//       parentOfItemBelow != item.id {
-    
-        parentOfItemBelow != item.id,
-//       itemBelow.location.x >= item.location.x,
-//       itemBelow.previousLocation.x >= item.previousLocation.x,
-        itemBelow.indentationLevel.value >= item.indentationLevel.value,
-       
-        // make sure it's not a closed group that we're proposing!
-       !excludedGroups[parentOfItemBelow].isDefined
-        
-        
-    
-    {
-        // ^^ the identation level of the item below must be at or farther east of the dragged-item;
-        // otherwise the item below might be something outside of our group / indentation
-        
-        log("groupFromChildBelow: itemBelow: \(itemBelow)")
-        log("groupFromChildBelow: parentOfItemBelow: \(parentOfItemBelow)")
-        
-        log("groupFromChildBelow: found child below")
-        return ProposedGroup(parentId: itemBelow.parentId!,
-                             xIndentation: itemBelow.location.x)
-    } else {
-        log("groupFromChildBelow: no eligible child below")
-        // item
+    guard let itemBelow = items[safeIndex: indexBelow] else {
+        log("groupFromChildBelow: no itemBelow")
         return nil
     }
+    
+    guard let parentOfItemBelow = itemBelow.parentId else {
+        log("groupFromChildBelow: no parent on itemBelow")
+        return nil
+    }
+    
+    log("groupFromChildBelow: itemBelow: \(itemBelow)")
+    log("groupFromChildBelow: itemBelow.parentId: \(itemBelow.parentId)")
+    log("groupFromChildBelow: itemBelow.indentationLevel.value: \(itemBelow.indentationLevel.value)")
+    log("groupFromChildBelow: item.indentationLevel.value: \(item.indentationLevel.value)")
+    
+    let itemsAbove = getItemsAbove(item, items)
+    
+    guard let parentItemAbove = itemsAbove.first(where: { $0.id == parentOfItemBelow }) else {
+        log("groupFromChildBelow: could not find parent above")
+        return nil
+    }
+    
+    let proposedParent = parentItemAbove.id
+    let proposedIndentation = parentItemAbove.indentationLevel.inc().toXLocation
+    
+    log("groupFromChildBelow: proposedParent: \(proposedParent)")
+    log("groupFromChildBelow: proposedIndentation: \(proposedIndentation)")
+    
+    // we'll use the indentation level of the parent + 1
+    return ProposedGroup(parentId: proposedParent,
+                         xIndentation: proposedIndentation)
 }
 
 func getItemsBelow(_ item: RectItem, _ items: RectItems) -> RectItems {
@@ -1201,6 +1190,10 @@ func proposeGroup(_ item: RectItem, // the moved-item
 //    let movedItemChildrenCount = childrenForParent(parentId: item.id, items).count
     let movedItemChildrenCount = draggedAlongCount
     
+    // this should also include eg the case where we're moving an item up from n=2 to n=1 nesting level;
+    // ie still in same group, but
+    
+    // maybe only check this when we're sure we're in the middle of a group?
     if let groupDueToChildBelow = groupFromChildBelow(item,
                                                       items,
                                                       movedItemChildrenCount: movedItemChildrenCount,
@@ -2080,48 +2073,47 @@ let sampleColors3: [MyColor] = [
     MyColor(color: .green)
 ]
 
-let sampleColors4: [MyColor] = [
-    MyColor(color: .red),
-    MyColor(color: .blue, children: [
-        MyColor(color: .black),
-        MyColor(color: .brown, children: [
-            MyColor(color: .cyan),
-            MyColor(color: .purple)
-
-        ]),
-        MyColor(color: .indigo, children: [
-            MyColor(color: .orange),
-            MyColor(color: .gray),
-        ]),
-    ]),
-    MyColor(color: .green),
-    MyColor(color: .yellow)
-]
-
 //let sampleColors4: [MyColor] = [
 //    MyColor(color: .red),
 //    MyColor(color: .blue, children: [
-//
 //        MyColor(color: .black),
-//
 //        MyColor(color: .brown, children: [
 //            MyColor(color: .cyan),
+//            MyColor(color: .purple)
+//
 //        ]),
 //        MyColor(color: .indigo, children: [
 //            MyColor(color: .orange),
+//            MyColor(color: .gray),
 //        ]),
 //    ]),
 //    MyColor(color: .green),
 //    MyColor(color: .yellow)
 //]
 
+let sampleColors4: [MyColor] = [
+    MyColor(color: .red),
+    MyColor(color: .blue, children: [
+
+        MyColor(color: .black),
+        MyColor(color: .indigo),
+
+        MyColor(color: .brown, children: [
+            MyColor(color: .cyan),
+            MyColor(color: .orange),
+        ]),
+    ]),
+    MyColor(color: .green),
+    MyColor(color: .yellow)
+]
+
 func generateData() -> MasterList {
     MasterList.fromColors(
 //                sampleColors0
 //        sampleColors1
 //        sampleColors2
-        sampleColors3
-//        sampleColors4
+//        sampleColors3
+        sampleColors4
     )
 }
 
