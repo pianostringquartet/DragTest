@@ -2078,7 +2078,8 @@ let FULL_ACTION_THRESHOLD = 0.8
 let SWIPE_RECT_WIDTH: CGFloat = 1000
 let SWIPE_RECT_HEIGHT: CGFloat = 500
 
-let SWIPE_OPTION_OPACITY = 0.8
+//let SWIPE_OPTION_OPACITY = 0.8
+let SWIPE_OPTION_OPACITY = 0.3
 
 //let SWIPE_X_START: CGFloat = 0
 let SWIPE_X_START: CGFloat = 150
@@ -2086,18 +2087,17 @@ let SWIPE_X_START: CGFloat = 150
 
 struct SwipeView: View {
     
-    
-    
     // position of swipe menu
-//    @State var x: CGFloat = 0
+    @State var x: CGFloat = 0
     @State var previousX: CGFloat = 0
-    @State var x: CGFloat = 150
-//    @State var previousX: CGFloat = 50
+//    @State var x: CGFloat = 250
+//    @State var previousX: CGFloat = 250
     
     var body: some View {
-        VStack {
+        VStack(spacing: 20) {
             Text("x: \(x)")
             Text("previousX: \(previousX)")
+            Text("SWIPE_RECT_WIDTH - x: \(SWIPE_RECT_WIDTH - x)")
             customSwipeItem
         }
     }
@@ -2118,9 +2118,10 @@ struct SwipeView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 16))
             
             swipeMenu
-                .clipShape(RoundedRectangle(cornerRadius: 16))
+//                .clipShape(RoundedRectangle(cornerRadius: 16))
             // constant:
-                .frame(width: SWIPE_RECT_WIDTH)
+//                .frame(width: SWIPE_RECT_WIDTH)
+            
             // create slight space between item and menu,
             // and edge of listView
                 .padding([.leading, .trailing], 10)
@@ -2140,7 +2141,7 @@ struct SwipeView: View {
     var rect: some View {
         Rectangle().fill(.indigo.opacity(0.3))
     }
-    
+        
     // only size grows?
     // or also position
     var swipeMenu: some View {
@@ -2153,21 +2154,76 @@ struct SwipeView: View {
         // based on available menu space and number of options
         let numberofOptions: CGFloat = 3
         let optionSpace: CGFloat = menuSpace / numberofOptions
-                
+               
+//        let redOption = Rectangle().fill(.red.opacity(SWIPE_OPTION_OPACITY))
+        
+        // the button-icon always needs to be in center, not .leading
+        // but since menu-tabs are so wide,
+        
+        
+        // the manual offsets aren't quite gonna work;
+        // current manual offsets don't quite seem to work,
+        // plus you don't
+        
+        // revisit after you get post-thresholding rest position,
+        
+        // or will need to be adjusted to match the post-threshold reasting condition;
+        // also need some minimum spacing betwe
+        
+        let redOption = Rectangle().fill(.red.opacity(SWIPE_OPTION_OPACITY))
+            .overlay(alignment: .leading) {
+                Button(role: .destructive) {
+                    log("on delete...")
+                } label: {
+                    Image(systemName: "trash")
+                }
+                .foregroundColor(.white)
+                .offset(x: optionSpace/2)
+            }
+        
+        let tealOption = Rectangle().fill(.teal.opacity(SWIPE_OPTION_OPACITY))
+            .overlay(alignment: .leading) {
+                Button {
+                    log("on toggle visibility...")
+                } label: {
+                    Image(systemName: "eye.slash")
+                }
+                .foregroundColor(.white)
+                .offset(
+                    x: (optionSpace * 2)/4
+                )
+            }
+        
+        let greyOption = Rectangle().fill(.gray.opacity(SWIPE_OPTION_OPACITY))
+            .overlay(alignment: .leading) {
+                Button {
+                    log("on misc...")
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .foregroundColor(.white)
+                .offset(
+                    x: (optionSpace * 3)/6
+                )
+            }
+        
+        
         return ZStack {
             
-            Rectangle().fill(.gray.opacity(SWIPE_OPTION_OPACITY))
+            greyOption
                 .zIndex(-2)
             // TODO: Why must place corner radius here, before .offset,
             // to get the proper edge-rounding?
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .offset(x: SWIPE_RECT_WIDTH - (optionSpace * 3))
-            
-            Rectangle().fill(.teal.opacity(SWIPE_OPTION_OPACITY))
+                        
+            tealOption
                 .zIndex(-1)
                 .offset(x: SWIPE_RECT_WIDTH - (optionSpace * 2))
             
-            Rectangle().fill(.red.opacity(SWIPE_OPTION_OPACITY))
+//            Rectangle().fill(.red.opacity(SWIPE_OPTION_OPACITY))
+            redOption
+//                .frame(width: SWIPE_RECT_WIDTH, height: SWIPE_RECT_HEIGHT)
                 .offset(x: SWIPE_RECT_WIDTH - optionSpace)
         }
 //        .clipShape(RoundedRectangle(cornerRadius: 16))
