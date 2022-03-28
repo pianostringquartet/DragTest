@@ -3,10 +3,22 @@ import SwiftUI
 
 // // MARK: CONSTANTS
 
-let RECT_HEIGHT: CGFloat = 100
+// was:
+//let RECT_HEIGHT: CGFloat = 100
+
+// now
+let RECT_HEIGHT: CGFloat = CGFloat(VIEW_HEIGHT)
+
+
 let RECT_WIDTH: CGFloat = 400
-let VIEW_HEIGHT: Int = 100
+//let RECT_WIDTH: CGFloat = 200
+
+let VIEW_HEIGHT: Int = 200
+
 let INDENTATION_LEVEL: Int = VIEW_HEIGHT / 2
+
+
+
 
 
 // // MARK: EXTENSIONS
@@ -1748,6 +1760,8 @@ struct RectView2: View {
     
     var isClosed: Bool
     
+    var useLocation: Bool = true
+    
     @State var isBeingEdited = false
     
     var body: some View {
@@ -1755,9 +1769,7 @@ struct RectView2: View {
     }
     
     var rectangle: some View {
-        
-//        let isBeingDraggedColor: Color = (current.map { $0 == item.id } ?? false) ? .white : .clear
-        
+                
         let isBeingDraggedColor: Color = (current.map { $0.current == item.id } ?? false) ? .white : .clear
         
         let isProposedGroupColor: Color = (proposedGroup?.parentId == item.id) ? .white : .clear
@@ -1765,7 +1777,8 @@ struct RectView2: View {
         return Rectangle().fill(item.color)
             .border(isBeingDraggedColor, width: 16)
             .overlay(isProposedGroupColor.opacity(0.8))
-            .frame(width: RECT_WIDTH, height: RECT_HEIGHT)
+            .frame(width: RECT_WIDTH,
+                   height: RECT_HEIGHT)
             .overlay(
                 HStack {
                     VStack {
@@ -1788,7 +1801,6 @@ struct RectView2: View {
                                 } else {
                                     masterList = onGroupClosed(closedId: item.id, masterList)
                                 }
-
                             }
                     }
                     
@@ -1806,16 +1818,18 @@ struct RectView2: View {
                            value: isBeingEdited)
                 
                 .padding()
-                
-//                Image(systemName: "circle")
-//                    .offset(x: isBeingEdited ? 0 : 60)
-//                    .animation(.default,
-//                               value: isBeingEdited)
-//                    .padding()
             })
-            .offset(CGSize(width: item.location.x,
-                           height: item.location.y))
+        
+//            .offset(CGSize(width: item.location.x,
+//                           height: item.location.y))
+        
+            .offset(CGSize(width: useLocation ? item.location.x : 0,
+//            .offset(CGSize(width: item.location.x,
+                           height: useLocation ? item.location.y : 0))
+            
+            
             .foregroundColor(.white)
+        
             .onTapGesture(perform: {
                 isBeingEdited.toggle()
             })
@@ -1823,11 +1837,6 @@ struct RectView2: View {
             .gesture(DragGesture()
                         .onChanged({ value in
                 print("onChanged: \(item.id)")
-                // done in onDragged
-                //                item.location = updatePosition(
-                //                    translationHeight: value.translation.height,
-                //                    location: item.previousLocation)
-//                current = item.id
                 var item = item
                 item.zIndex = 9999
 
@@ -1844,7 +1853,6 @@ struct RectView2: View {
             })
                         .onEnded({ _ in
                 print("onEnded: \(item.id)")
-//                current = nil
                 var item = item
                 item.previousLocation = item.location
                 item.zIndex = 0 // set to zero when drag ended
@@ -1872,8 +1880,7 @@ struct RectView2: View {
     }
 }
 
-struct ContentView: View {
-    
+struct DragListView: View {
     @State private var masterList = generateData()
     
     // the current id being dragged
@@ -1893,13 +1900,18 @@ struct ContentView: View {
     @State var y: CGFloat = 0
     @State var previousY: CGFloat = 0
     
+    let nativeListWidth: CGFloat = 600
+    
     var body: some View {
-        list
+//        list
+        nativeList
+            .frame(width: nativeListWidth)
 //            .frame(width: 400, height: 900)
-            .frame(width: 400)
-            .animation(.default, value: masterList)
-            .offset(x: -200, y: -500)
-//            .offset(x: -200, y: y)
+        
+//            .frame(width: 400)
+//            .animation(.default, value: masterList)
+//            .offset(x: -200, y: -500)
+
         
         // DISABLED FOR NOW
         
@@ -1914,6 +1926,70 @@ struct ContentView: View {
 //                print("list drag onEnded")
 //                previousY = y
 //            }))
+    }
+    
+    var nativeList: some View {
+        
+        VStack {
+            EditButton()
+            HStack(spacing: 0) {
+               Group { Text("0")
+                Rectangle().fill(.clear).frame(width: 100)
+                Text("1")
+                Rectangle().fill(.clear).frame(width: 100)
+                Text("2")}
+                Rectangle().fill(.clear).frame(width: 100)
+                Text("3")
+                Rectangle().fill(.clear).frame(width: 100)
+                Text("4")
+                Rectangle().fill(.clear).frame(width: 100)
+                Text("5")
+            }.frame(width: nativeListWidth, height: 30, alignment: .leading)
+            
+            List {
+                ForEach(masterList.items, id: \.id.value) { (d: RectItem) in
+                    let isClosed = masterList.collapsedGroups.contains(d.id)
+                                        
+                        RectView2(item: d,
+                                  masterList: $masterList,
+                                  current: $current,
+                                  proposedGroup: $proposedGroup,
+                                  cursorDrag: $cursorDrag,
+                                  isClosed: isClosed,
+                                  useLocation: false)
+                        
+                            .swipeActions(edge: .trailing) {
+                                // grey misc
+                                // teal visibility (eye)
+                                // red trash
+                                // FROM LEFT TO RIGHT:
+                                Button(role: .destructive) {
+                                    log("on delete...")
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                                Button {
+                                    log("on toggle visibility...")
+                                } label: {
+                                    Label("Hidden",
+                                          systemImage: "eye.slash")
+                                }.tint(.teal)
+                                
+                                Button {
+                                    log("misc")
+                                } label: {
+                                    Label("Misc", systemImage: "ellipsis.circle")
+                                }.tint(.gray)
+                            }
+                }.onMove { _, _ in
+                    
+                }.onDelete { _ in
+                    
+                }
+            }
+        }
+        
+       
     }
     
     var debugHelper: some View {
@@ -1933,8 +2009,6 @@ struct ContentView: View {
     }
     
     var list: some View {
-        
-        
         ZStack {
             logInView("ContentView: body: masterList.collapsedGroups: \(masterList.collapsedGroups)")
             debugHelper
@@ -1943,22 +2017,22 @@ struct ContentView: View {
                 
                 let isClosed = masterList.collapsedGroups.contains(d.id)
                 
-                
-                let parent = d.parentId
-                let parentPosition = parent
-                    .map { retrieveItem($0, masterList.items) }?.location.y ?? d.location.y
-                
-                let closedParentId = ItemId(1)
-                
-                let parentY = retrieveItem(
-                    closedParentId, masterList.items).location.y
-                
+//                let parent = d.parentId
+//                let parentPosition = parent
+//                    .map { retrieveItem($0, masterList.items) }?.location.y ?? d.location.y
+//
+//                let closedParentId = ItemId(1)
+//
+//                let parentY = retrieveItem(
+//                    closedParentId, masterList.items).location.y
+//
                 RectView2(item: d,
                           masterList: $masterList,
                           current: $current,
                           proposedGroup: $proposedGroup,
                           cursorDrag: $cursorDrag,
                           isClosed: isClosed)
+                
 //                    .transition(.slide)
 //                    .transition(.move(edge: .top))
                 
@@ -1984,6 +2058,131 @@ struct ContentView: View {
         } // ZStack
     }
     
+}
+
+
+func fullActionThresholdMet() {
+    
+}
+
+// did we drag
+func openThresholdMet() {
+    
+}
+
+// must drag 30%
+let OPEN_THRESHOLD = 0.3
+
+let FULL_ACTION_THRESHOLD = 0.8
+
+let SWIPE_RECT_WIDTH: CGFloat = 1000
+let SWIPE_RECT_HEIGHT: CGFloat = 500
+
+let SWIPE_OPTION_OPACITY = 0.8
+
+//let SWIPE_X_START: CGFloat = 0
+let SWIPE_X_START: CGFloat = 150
+
+
+struct SwipeView: View {
+    
+    
+    
+    // position of swipe menu
+//    @State var x: CGFloat = 0
+    @State var previousX: CGFloat = 0
+    @State var x: CGFloat = 150
+//    @State var previousX: CGFloat = 50
+    
+    var body: some View {
+        VStack {
+            Text("x: \(x)")
+            Text("previousX: \(previousX)")
+            customSwipeItem
+        }
+    }
+    
+    var customSwipeItem: some View {
+        
+        let drag = DragGesture().onChanged { value in
+            let xTrans = value.translation.width
+            x = previousX - xTrans
+        }.onEnded { value in
+            previousX = x
+        }
+                
+        return ZStack(alignment: .leading) {
+            rect
+            // size decreases as menu takes up more space
+                .frame(width: SWIPE_RECT_WIDTH - x)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+            
+            swipeMenu
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+            // constant:
+                .frame(width: SWIPE_RECT_WIDTH)
+            // create slight space between item and menu,
+            // and edge of listView
+                .padding([.leading, .trailing], 10)
+        }
+        
+        // menu and item have same height;
+        // but different widths
+        .frame(height: SWIPE_RECT_HEIGHT,
+               alignment: .leading)
+        
+        // drag must be on outside, since we can drag
+        // on an open menu
+        .gesture(drag)
+    }
+    
+    // ie the item
+    var rect: some View {
+        Rectangle().fill(.indigo.opacity(0.3))
+    }
+    
+    // only size grows?
+    // or also position
+    var swipeMenu: some View {
+        
+        // the space available for the menu,
+        // based on how we've dragged
+        let menuSpace: CGFloat = x
+
+        // space for a single option in the menu,
+        // based on available menu space and number of options
+        let numberofOptions: CGFloat = 3
+        let optionSpace: CGFloat = menuSpace / numberofOptions
+                
+        return ZStack {
+            
+            Rectangle().fill(.gray.opacity(SWIPE_OPTION_OPACITY))
+                .zIndex(-2)
+            // TODO: Why must place corner radius here, before .offset,
+            // to get the proper edge-rounding?
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .offset(x: SWIPE_RECT_WIDTH - (optionSpace * 3))
+            
+            Rectangle().fill(.teal.opacity(SWIPE_OPTION_OPACITY))
+                .zIndex(-1)
+                .offset(x: SWIPE_RECT_WIDTH - (optionSpace * 2))
+            
+            Rectangle().fill(.red.opacity(SWIPE_OPTION_OPACITY))
+                .offset(x: SWIPE_RECT_WIDTH - optionSpace)
+        }
+//        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+
+
+
+struct ContentView: View {
+    
+    var body: some View {
+//        DragListView()
+        SwipeView()
+    }
     
 }
 
