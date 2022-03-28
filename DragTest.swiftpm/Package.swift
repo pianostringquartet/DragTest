@@ -17,7 +17,7 @@ let package = Package(
             name: "DragTest",
             targets: ["AppModule"],
             bundleIdentifier: "com.adammenges.DragTest",
-            teamIdentifier: "NGV85M44ZU",
+            teamIdentifier: "9QA5989LWB",
             displayVersion: "1.0",
             bundleVersion: "1",
             iconAssetName: "AppIcon",

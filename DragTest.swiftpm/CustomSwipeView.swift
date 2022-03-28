@@ -21,11 +21,11 @@ let SWIPE_OPTION_OPACITY = 0.95
 struct SwipeView: View {
     
     // position of swipe menu
-//    @State var x: CGFloat = 0
-//    @State var previousX: CGFloat = 0
+    @State var x: CGFloat = 0
+    @State var previousX: CGFloat = 0
     
-    @State var x: CGFloat = 200
-    @State var previousX: CGFloat = 200
+//    @State var x: CGFloat = 200
+//    @State var previousX: CGFloat = 200
         
     // 30% of view's width
 //    let RESTING_THRESHOLD: CGFloat = SWIPE_RECT_WIDTH / 3
@@ -37,7 +37,7 @@ struct SwipeView: View {
     
     var body: some View {
         VStack(spacing: 20) {
-            VStack(spacing: 20) {
+            VStack(spacing: 5) {
                 Text("x: \(x)")
                 Text("previousX: \(previousX)")
                 Text("SWIPE_RECT_WIDTH - x: \(SWIPE_RECT_WIDTH - x)")
@@ -46,8 +46,8 @@ struct SwipeView: View {
                 Text("DEFAULT_ACTION_THRESHOLD: \(DEFAULT_ACTION_THRESHOLD)")
                 Text("optionSpace: \(optionSpace)")
             }
-            .offset(y: -100)
-            .scaleEffect(1.5)
+            .offset(y: -50)
+            .scaleEffect(1.1)
             
             customSwipeItem
         }
@@ -70,24 +70,25 @@ struct SwipeView: View {
     
     var customSwipeItem: some View {
         
-        let drag = DragGesture().onChanged { value in
-            let xTrans = value.translation.width
-            x = previousX - xTrans
+//        let onDragChanged: OnSwipeDragChanged = { (value: DragGesture.Value) in
+        let onDragChanged: OnSwipeDragChanged = { (translationWidth: CGFloat) in
+            print("onDragChanged called")
+//            let xTrans = value.translation.width
+            
+            x = previousX - translationWidth
             
             // never let us drag the list eastward beyond its frame
             if x < 0 {
                 x = 0
             }
-            
-        }.onEnded { value in
-            
+        }
+        
+        let onDragEnded: OnSwipeDragEnded = {
+            print("onDragEnded called")
             if atDefaultActionThreshold {
                 // Don't need to change x position here,
-                // since redOption's offset will handle that?
-                
-//                x = DEFAULT_ACTION_THRESHOLD
-                
-                
+                // since redOption's offset handles that.
+                                
                 // dispatch default action here, which will cause view to rerender
                 // without this given rect item
                 print("TODO: delete item")
@@ -99,8 +100,16 @@ struct SwipeView: View {
             else {
                 x = 0
             }
-            
             previousX = x
+        }
+        
+        
+        let drag = DragGesture().onChanged { value in
+//            log("DragGesture: onChanged")
+            onDragChanged(value.translation.width)
+        }.onEnded { value in
+//            log("DragGesture: onEnded")
+            onDragEnded()
         }
                 
         return ZStack(alignment: .leading) {
@@ -122,11 +131,16 @@ struct SwipeView: View {
         
         // menu and item have same height;
         // but different widths
-        .frame(height: SWIPE_RECT_HEIGHT,
-               alignment: .leading)
+        .frame(height: SWIPE_RECT_HEIGHT, alignment: .leading)
         
+        // overlay UIKit GestureRecognizer for 2-finger trackpad panning
+        .overlay(SwipeGestureRecognizerView(
+            onDragChanged: onDragChanged,
+            onDragEnded: onDragEnded))
+                
         // drag must be on outside, since we can drag
-        // on an open menu
+        // on an open menu;
+        // must come AFTER UIKit GestureRecognizer
         .gesture(drag)
     }
     
@@ -191,7 +205,7 @@ struct SwipeView: View {
                 
                 .padding(
                     [.leading],
-                    optionPadding
+                    atDefaultActionThreshold ? 60 : optionPadding
                 )
             }
         
