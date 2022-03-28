@@ -21,11 +21,16 @@ let SWIPE_OPTION_OPACITY = 0.95
 struct SwipeView: View {
     
     // position of swipe menu
-    @State var x: CGFloat = 0
-    @State var previousX: CGFloat = 0
+//    @State var x: CGFloat = 0
+//    @State var previousX: CGFloat = 0
+    
+    @State var x: CGFloat = 200
+    @State var previousX: CGFloat = 200
         
     // 30% of view's width
-    let RESTING_THRESHOLD: CGFloat = SWIPE_RECT_WIDTH / 3
+//    let RESTING_THRESHOLD: CGFloat = SWIPE_RECT_WIDTH / 3
+    let RESTING_THRESHOLD: CGFloat = SWIPE_RECT_WIDTH * 0.2
+    let RESTING_THRESHOLD_POSITION: CGFloat = SWIPE_RECT_WIDTH * 0.3
     
     // 75% of view's width
     let DEFAULT_ACTION_THRESHOLD: CGFloat = SWIPE_RECT_WIDTH * 0.75
@@ -37,7 +42,9 @@ struct SwipeView: View {
                 Text("previousX: \(previousX)")
                 Text("SWIPE_RECT_WIDTH - x: \(SWIPE_RECT_WIDTH - x)")
                 Text("RESTING_THRESHOLD: \(RESTING_THRESHOLD)")
+                Text("RESTING_THRESHOLD_POSITION: \(RESTING_THRESHOLD_POSITION)")
                 Text("DEFAULT_ACTION_THRESHOLD: \(DEFAULT_ACTION_THRESHOLD)")
+                Text("optionSpace: \(optionSpace)")
             }
             .offset(y: -100)
             .scaleEffect(1.5)
@@ -57,6 +64,10 @@ struct SwipeView: View {
         x >= DEFAULT_ACTION_THRESHOLD
     }
     
+    var hasCrossedRestingThreshold: Bool {
+        x >= RESTING_THRESHOLD
+    }
+    
     var customSwipeItem: some View {
         
         let drag = DragGesture().onChanged { value in
@@ -71,13 +82,18 @@ struct SwipeView: View {
         }.onEnded { value in
             
             if atDefaultActionThreshold {
-                x = DEFAULT_ACTION_THRESHOLD
+                // Don't need to change x position here,
+                // since redOption's offset will handle that?
+                
+//                x = DEFAULT_ACTION_THRESHOLD
+                
+                
                 // dispatch default action here, which will cause view to rerender
                 // without this given rect item
                 print("TODO: delete item")
             }
-            else if x >= RESTING_THRESHOLD {
-                x = RESTING_THRESHOLD
+            else if hasCrossedRestingThreshold {
+                x = RESTING_THRESHOLD_POSITION
             }
             // we didn't pull it out far enough -- set x = 0
             else {
@@ -129,19 +145,41 @@ struct SwipeView: View {
         Rectangle().fill(.indigo.opacity(0.3))
     }
         
-    // only size grows?
-    // or also position
-    var swipeMenu: some View {
+    var optionSpace: CGFloat {
         
         // the space available for the menu,
         // based on how we've dragged
         let menuSpace: CGFloat = x
-
+        
         // space for a single option in the menu,
         // based on available menu space and number of options
         let numberofOptions: CGFloat = 3
-        let optionSpace: CGFloat = menuSpace / numberofOptions
-                       
+        //        let optionSpace: CGFloat = menuSpace / numberofOptions
+        return menuSpace / numberofOptions
+    }
+    
+    var optionPadding: CGFloat {
+        
+//        let defaultOptionPadding = optionSpace / 2
+        
+        // ie the default option padding
+        var padding = optionSpace / 2
+        
+        // if we're not hidden, then we need to slightly pull to the left
+        if x != 0 {
+            padding -= 10
+        }
+        
+        // should never let padding be less than 10 pixels
+        if padding < 10 {
+            return 10
+        }
+        
+        return padding
+    }
+    
+    var swipeMenu: some View {
+        
         let redOption = Rectangle().fill(.red.opacity(SWIPE_OPTION_OPACITY))
             .overlay(alignment: .leading) {
                 Button(role: .destructive) {
@@ -150,7 +188,11 @@ struct SwipeView: View {
                     Image(systemName: "trash")
                 }
                 .foregroundColor(.white)
-                .offset(x: optionSpace/2)
+                
+                .padding(
+                    [.leading],
+                    optionPadding
+                )
             }
         
         let tealOption = Rectangle().fill(.teal.opacity(SWIPE_OPTION_OPACITY))
@@ -161,8 +203,9 @@ struct SwipeView: View {
                     Image(systemName: "eye.slash")
                 }
                 .foregroundColor(.white)
-                .offset(
-                    x: (optionSpace * 2)/4
+                .padding(
+                    [.leading],
+                    optionPadding
                 )
             }
         
@@ -174,12 +217,14 @@ struct SwipeView: View {
                     Image(systemName: "ellipsis.circle")
                 }
                 .foregroundColor(.white)
-                .offset(
-                    x: (optionSpace * 3)/6
+                .padding(
+                    [.leading],
+                    optionPadding
                 )
             }
     
         
+        // should be 0 when at default-action-threshod
         let redOffset: CGFloat = atDefaultActionThreshold
             ? 0
             : (SWIPE_RECT_WIDTH - optionSpace)
@@ -197,10 +242,7 @@ struct SwipeView: View {
                 .offset(x: SWIPE_RECT_WIDTH - (optionSpace * 2))
             
             redOption
-//                .offset(x: SWIPE_RECT_WIDTH - optionSpace)
                 .offset(x: redOffset)
-            
-            
         }
     }
 }
