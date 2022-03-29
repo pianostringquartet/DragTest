@@ -45,6 +45,7 @@ struct SwipeView: View {
                 Text("RESTING_THRESHOLD_POSITION: \(RESTING_THRESHOLD_POSITION)")
                 Text("DEFAULT_ACTION_THRESHOLD: \(DEFAULT_ACTION_THRESHOLD)")
                 Text("optionSpace: \(optionSpace)")
+                Text("optionPadding: \(optionPadding)")
             }
             .offset(y: -50)
             .scaleEffect(1.1)
@@ -174,22 +175,33 @@ struct SwipeView: View {
     
     var optionPadding: CGFloat {
         
-//        let defaultOptionPadding = optionSpace / 2
-        
-        // ie the default option padding
-        var padding = optionSpace / 2
-        
-        // if we're not hidden, then we need to slightly pull to the left
-        if x != 0 {
-            padding -= 10
+        let tenPercentMargin = optionSpace * 0.1
+        let minimum = tenPercentMargin < 10 ? 10 : tenPercentMargin
+                
+        // If we're at the resting position, or moving eastward (closing menu),
+        // icon should be centered.
+        if x <= RESTING_THRESHOLD_POSITION {
+            let defaultOptionPadding = (optionSpace / 2) - 10
+            // Always have at least some minimum padding;
+            if defaultOptionPadding < minimum {
+                return minimum
+            }
+            return defaultOptionPadding
         }
-        
-        // should never let padding be less than 10 pixels
-        if padding < 10 {
-            return 10
+        else {
+            // As we move away from resting, we don't want to
+            // immediately jump from a eg 50% margin to a 10% margin;
+            // so we taper it.
+            let diff: CGFloat = RESTING_THRESHOLD_POSITION - x
+            
+            // As diff increases, padding decreases.
+            let k = diff * 0.05
+            let space = optionSpace / (2 - k)
+            if space < minimum {
+                return minimum
+            }
+            return space
         }
-        
-        return padding
     }
     
     var swipeMenu: some View {

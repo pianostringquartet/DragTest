@@ -9,8 +9,6 @@ import Foundation
 import UIKit
 import SwiftUI
 
-
-//typealias OnSwipeDragChanged = (DragGesture.Value) -> ()
 typealias OnSwipeDragChanged = (CGFloat) -> ()
 typealias OnSwipeDragEnded = () -> ()
 
@@ -20,16 +18,12 @@ struct SwipeGestureRecognizerView: UIViewControllerRepresentable {
     let onDragEnded: OnSwipeDragEnded
     
     func makeUIViewController(context: UIViewControllerRepresentableContext<SwipeGestureRecognizerView>) -> SwipeGestureRecognizerVC {
-        log("SwipeGestureRecognizerView: makeUIViewController")
-//        return SwipeGestureRecognizerVC()
-        return SwipeGestureRecognizerVC(onDragChanged: onDragChanged,
-                                        onDragEnded: onDragEnded)
+        SwipeGestureRecognizerVC(onDragChanged: onDragChanged,
+                                 onDragEnded: onDragEnded)
     }
 
     func updateUIViewController(_ uiView: SwipeGestureRecognizerVC,
-                                context: Context) {
-        log("SwipeGestureRecognizerView: makeUIViewController")
-    }
+                                context: Context) { }
 }
 
 class SwipeGestureRecognizerVC: UIViewController {
@@ -69,16 +63,14 @@ class SwipeGestureRecognizerVC: UIViewController {
         self.view.addGestureRecognizer(trackpadPanGesture)
     }
 
-    // only intended for a single finger on the screen;
-    // two fingers on the screen is a pinch, not a pan, gesture
     @objc func panInView(_ gestureRecognizer: UIPanGestureRecognizer) {
 
         log("SwipeGestureRecognizerVC: screenPanInView: gestureRecognizer.numberOfTouches:  \(gestureRecognizer.numberOfTouches)")
 
-        // `touches == 0` = we're just running our fingers on the trackpad
+        // `touches == 0` = running our fingers on trackpad, but no click
         guard gestureRecognizer.numberOfTouches == 0 else {
             log("SwipeGestureRecognizerVC: screenPanInView: incorrect number of touches; will do nothing")
-            return 
+            return
         }
         
         switch gestureRecognizer.state {
@@ -105,15 +97,10 @@ class SwipeGestureRecognizerVC: UIViewController {
 }
 
 // Enables simultaneous gestures with SwiftUI gesture handlers
-// Pan gestures are cancelled by pinch gestures.
 extension SwipeGestureRecognizerVC: UIGestureRecognizerDelegate {
     
-    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-        
-        log("\n \n SwipeGestureRecognizerVC: shouldRecognizeSimultaneouslyWith")
-        log("SwipeGestureRecognizerVC: gestureRecognizer: \(gestureRecognizer)")
-        log("SwipeGestureRecognizerVC: otherGestureRecognizer: \(otherGestureRecognizer)")
-
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                           shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
         return true
     }
 }
