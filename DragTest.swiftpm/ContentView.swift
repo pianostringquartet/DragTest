@@ -2195,7 +2195,8 @@ struct ContentView: View {
     
     var body: some View {
 //        DragListView()
-        SwipeView()
+//        SwipeView()
+        SwipeListView()
     }
     
 }

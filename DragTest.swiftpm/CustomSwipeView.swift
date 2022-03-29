@@ -7,15 +7,30 @@
 
 import SwiftUI
 
-
+// will be CustomListItemView's width
 let SWIPE_RECT_WIDTH: CGFloat = 1000
 
+// will be CustomListItemView's height
 //let SWIPE_RECT_HEIGHT: CGFloat = 500
 let SWIPE_RECT_HEIGHT: CGFloat = 250
 
 //let SWIPE_OPTION_OPACITY = 0.5
 //let SWIPE_OPTION_OPACITY = 0.8
-let SWIPE_OPTION_OPACITY = 0.95
+let SWIPE_OPTION_OPACITY: CGFloat = 1
+
+
+struct SwipeListView: View {
+    
+    @State var activeSwipeId: Int? = nil
+    
+    var body: some View {
+        VStack(spacing: 60) {
+            SwipeView(id: 1, activeSwipeId: $activeSwipeId)
+            SwipeView(id: 2, activeSwipeId: $activeSwipeId)
+        }
+    }
+    
+}
 
 
 struct SwipeView: View {
@@ -27,6 +42,10 @@ struct SwipeView: View {
 //    @State var x: CGFloat = 200
 //    @State var previousX: CGFloat = 200
         
+    let id: Int
+    
+    @Binding var activeSwipeId: Int?
+    
     // 30% of view's width
 //    let RESTING_THRESHOLD: CGFloat = SWIPE_RECT_WIDTH / 3
     let RESTING_THRESHOLD: CGFloat = SWIPE_RECT_WIDTH * 0.2
@@ -47,18 +66,17 @@ struct SwipeView: View {
                 Text("optionSpace: \(optionSpace)")
                 Text("optionPadding: \(optionPadding)")
             }
-            .offset(y: -50)
+//            .offset(y: -50)
             .scaleEffect(1.1)
             
             customSwipeItem
         }
-        
-        // animate the automatic position changes of x
-//        .animation(.default, value: x)
-//        .animation(.easeInOut(duration: 1), value: x)
-        
         // What's the real animation here?
         .animation(.linear(duration: 0.3), value: x)
+        .onChange(of: activeSwipeId) { newValue in
+            x = 0
+            previousX = 0
+        }
     }
     
     var atDefaultActionThreshold: Bool {
@@ -71,10 +89,8 @@ struct SwipeView: View {
     
     var customSwipeItem: some View {
         
-//        let onDragChanged: OnSwipeDragChanged = { (value: DragGesture.Value) in
         let onDragChanged: OnSwipeDragChanged = { (translationWidth: CGFloat) in
             print("onDragChanged called")
-//            let xTrans = value.translation.width
             
             x = previousX - translationWidth
             
@@ -82,6 +98,8 @@ struct SwipeView: View {
             if x < 0 {
                 x = 0
             }
+            
+            activeSwipeId = id
         }
         
         let onDragEnded: OnSwipeDragEnded = {
@@ -102,6 +120,7 @@ struct SwipeView: View {
                 x = 0
             }
             previousX = x
+            activeSwipeId = id
         }
         
         
@@ -157,7 +176,9 @@ struct SwipeView: View {
     
     // ie the item
     var rect: some View {
-        Rectangle().fill(.indigo.opacity(0.3))
+        Rectangle().fill(.indigo.opacity(0.3)).overlay {
+            Text("id: \(id)")
+        }
     }
         
     var optionSpace: CGFloat {
