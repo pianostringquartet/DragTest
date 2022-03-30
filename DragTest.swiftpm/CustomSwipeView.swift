@@ -60,17 +60,20 @@ struct SwipeView: View {
     
     // DOES need to be a binding,
     // so that we can block any other scrolling
-    @Binding var isScrolling: Bool
-    
-    @Binding var canScroll: Bool
-    
-    @State var isDragging: Bool = false
+//    @Binding var isScrolling: Bool
+//    @Binding var canScroll: Bool    
+//    @State var isDragging: Bool = false
     
     let isBeingEdited: Bool
     
-    var canSwipe: Bool {
-        !isScrolling && !isDragging
-    }
+    @Binding var activeGesture: ActiveGesture?
+    
+    
+    // can only swipe if not doing something
+//    var canSwipe: Bool {
+////        !isScrolling && !isDragging
+//        !activeGesture.isDefined
+//    }
     
     var body: some View {
         
@@ -79,25 +82,29 @@ struct SwipeView: View {
         
         let longPress = LongPressGesture(minimumDuration: pressDuration).onEnded { _ in
             print("longPress onChanged")
-            isScrolling = false
-            canScroll = false
-            isDragging = true
+//            isScrolling = false
+//            canScroll = false
+//            isDragging = true
+            activeGesture = .dragging
         }
         
         let itemDrag = DragGesture()
             .onChanged { value in
                 print("itemDrag onChanged")
                 y = value.translation.height + previousY
-                isScrolling = false
-                canScroll = false
-                isDragging = true
+                activeGesture = .dragging
+                
+//                isScrolling = false
+//                canScroll = false
+//                isDragging = true
 //                isLongPressing = false
             }.onEnded { value in
                 print("itemDrag onEnded")
                 previousY = y
-                isScrolling = false
-                canScroll = true
-                isDragging = false
+                activeGesture = nil
+//                isScrolling = false
+//                canScroll = true
+//                isDragging = false
             }
 
         let combined = longPress.sequenced(before: itemDrag)
@@ -125,20 +132,32 @@ struct SwipeView: View {
             previousX = 0
         }
         // if we start scrolling, reset swipe
-        .onChange(of: isScrolling) { newValue in
-            if newValue {
-                x = 0
-                previousX = 0
-            }
-        }
-        // if we start dragging this item, reset swipe
-        .onChange(of: isDragging) { newValue in
-            if newValue {
-                x = 0
-                previousX = 0
-            }
-        }
+//        .onChange(of: isScrolling) { newValue in
+//            if newValue {
+//                x = 0
+//                previousX = 0
+//            }
+//        }
+//        // if we start dragging this item, reset swipe
+//        .onChange(of: isDragging) { newValue in
+//            if newValue {
+//                x = 0
+//                previousX = 0
+//            }
+//        }
 
+        .onChange(of: activeGesture) { (newValue) in
+            if let activeGesture = activeGesture {
+                switch activeGesture {
+                case .scrolling, .dragging:
+                    x = 0
+                    previousX = 0
+                default:
+                    return
+                }
+            }
+            
+        }
         
     }
     
@@ -159,10 +178,12 @@ struct SwipeView: View {
 //                Text("optionSpace: \(optionSpace)")
 //                Text("optionPadding: \(optionPadding)")
 //                Text("swipeMenuCornerRadius: \(swipeMenuCornerRadius)")
-                Text("isScrolling: \(isScrolling.description)")
-                Text("canScroll: \(canScroll.description)")
-                Text("isDragging: \(isDragging.description)")
-                Text("canSwipe: \(canSwipe.description)")
+//                Text("isScrolling: \(isScrolling.description)")
+//                Text("canScroll: \(canScroll.description)")
+//                Text("isDragging: \(isDragging.description)")
+//                Text("canSwipe: \(canSwipe.description)")
+                
+                Text("activeGesture: \(activeGesture.debugDescription)")
             }
         }
         .scaleEffect(1.2)
@@ -181,117 +202,72 @@ struct SwipeView: View {
     
     var customSwipeItem: some View {
         
-        let onSwipeDragChanged: OnSwipeDragChanged = {
+        let onSwipeChanged: OnSwipeDragChanged = {
 //            (translationWidth: CGFloat) in
             (translation: CGSize) in
-            print("onSwipeDragChanged called")
-            
-            // dis-able scrolling during the gesture
-//            canScroll = false
-            
-            // ^^ this won't be enough ?
-            // w
-            
-            let translationHeight: CGFloat = translation.height
+            print("onSwipeChanged called")
+                        
             let translationWidth: CGFloat = translation.width
             
-            // we really only want to worry about primarily horizontal gestures
-            
-            // if we're as or more horizontal than vertical,
-            // then we're swiping
-//            if translationWidth.magnitude >= translationHeight.magnitude {
-//                print("onSwipeDragChanged: mostly horizontal")
-//                log("onSwipeDragChanged: translation.height: \(translation.height)")
-//                log("onSwipeDragChanged: translation.width: \(translation.width)")
-//                canScroll = false
-//                isScrolling = false
-//            }
-            
-            
-            // ^^ good but gets called to easily
-            
-            // ^^ ideally? if we're already in the middle of a scroll,
-            // we can swipe
-            
-            
-            // if we didn't pass the threshold for scrolling,
-            // and aren't currently scrolling, then check if we should start a swipe
-            if !isScrolling
-                // ... should check if we passed through swiping threshold
-//                && translationWidth.magnitude >= translationHeight.magnitude {
-                && translationWidth.magnitude >= SWIPE_THRESHOLD {
-                print("onSwipeDragChanged: mostly horizontal")
-                log("onSwipeDragChanged: translation.height: \(translation.height)")
-                log("onSwipeDragChanged: translation.width: \(translation.width)")
-                canScroll = false
-                isScrolling = false
+            // if we have no active gesture,
+            // and we met the swipe threshold,
+            // then we can begin swiping
+            if !activeGesture.isDefined
+                && translationWidth.magnitude > SWIPE_THRESHOLD {
+                print("onSwipeChanged: setting us to swipe")
+                
+                activeGesture = .swiping
             }
             
-            
-            
-            // this should be?: if we're more horizontal than vertical,
-            // AND not already scrolling
-            // (otherwise we
-//            if translationWidth.magnitude > translationHeight.magnitude
-//                && isScrolling {
-//                canScroll = false
-//            }
-            
-//
-            if !canSwipe {
-                print("onSwipeDragChanged: cannot swipe")
-                return
+            if activeGesture?.isSwipe ?? false {
+                print("onSwipeChanged: updating per swipe")
+                
+                x = previousX - translationWidth
+                
+                // never let us drag the list eastward beyond its frame
+                if x < 0 {
+                    x = 0
+                }
+                
+                activeSwipeId = id
             }
-                        
-            x = previousX - translationWidth
-            
-            // never let us drag the list eastward beyond its frame
-            if x < 0 {
-                x = 0
-            }
-            
-            activeSwipeId = id
-            print("onSwipeDragChanged: normal end")
         }
         
-        let onSwipeDragEnded: OnSwipeDragEnded = {
-            print("onSwipeDragEnded called")
+        let onSwipeEnded: OnSwipeDragEnded = {
+            print("onSwipeEnded called")
             
-            // re-enable scroll
-            canScroll = true
-            isScrolling = false
-            
-            if !canSwipe {
-                print("onSwipeDragEnded: mostly horizontal")
-                return
-            }
-            
-            if atDefaultActionThreshold {
-                // Don't need to change x position here,
-                // since redOption's offset handles that.
-                                
-                // dispatch default action here, which will cause view to rerender
-                // without this given rect item
-                print("TODO: delete item")
-            }
-            else if hasCrossedRestingThreshold {
-                x = RESTING_THRESHOLD_POSITION
-            }
-            // we didn't pull it out far enough -- set x = 0
-            else {
-                x = 0
-            }
-            previousX = x
-            activeSwipeId = id
+            // if we had been swiping,
+            // then we resset activeGesture
+            if activeGesture?.isSwipe ?? false {
+                print("onSwipeEnded onEnded: resetting swipe")
+                activeGesture = nil
+                
+                if atDefaultActionThreshold {
+                    // Don't need to change x position here,
+                    // since redOption's offset handles that.
+                                    
+                    // dispatch default action here, which will cause view to rerender
+                    // without this given rect item
+                    print("TODO: delete item")
+                }
+                else if hasCrossedRestingThreshold {
+                    x = RESTING_THRESHOLD_POSITION
+                }
+                // we didn't pull it out far enough -- set x = 0
+                else {
+                    x = 0
+                }
+                previousX = x
+                activeSwipeId = id
+            } // if active...
         }
-        
-        
+                
         let swipeDrag = DragGesture().onChanged { value in
 //            log("DragGesture: onChanged")
-            onSwipeDragChanged(value.translation)
+            onSwipeChanged(value.translation)
         }.onEnded { value in
 //            log("DragGesture: onEnded")
-            onSwipeDragEnded()
+            onSwipeEnded()
         }
                 
         return ZStack(alignment: .leading) {
@@ -348,7 +324,8 @@ struct SwipeView: View {
     
     // ie the item
     var rect: some View {
-        let color: Color = isDragging ? .green : .indigo
+//        let color: Color = isDragging ? .green : .indigo
+        let color: Color = (activeGesture?.isDrag ?? false) ? .green : .indigo
         
         return Rectangle().fill(color.opacity(0.3)).overlay {
             Text("id: \(id)")

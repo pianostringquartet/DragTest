@@ -8,89 +8,87 @@
 import Foundation
 import SwiftUI
 
+// `ActiveGesture?`
+enum ActiveGesture: Equatable {
+    case scrolling, // scrolling the entire list
+         dragging, // drag or (long press + drag); on a single item
+         swiping // swiping single item
+    
+    var isScroll: Bool {
+        switch self {
+        case .scrolling:
+            return true
+        default:
+            return false
+        }
+    }
+    
+    var isDrag: Bool {
+        switch self {
+        case .dragging:
+            return true
+        default:
+            return false
+        }
+    }
+    
+    var isSwipe: Bool {
+        switch self {
+        case .swiping:
+            return true
+        default:
+            return false
+        }
+    }
+}
 
-let SCROLL_THRESHOLD: CGFloat = 8
-let SWIPE_THRESHOLD: CGFloat = 8
+
+//let SCROLL_THRESHOLD: CGFloat = 8
+//let SWIPE_THRESHOLD: CGFloat = 8
+
+let SCROLL_THRESHOLD: CGFloat = 20
+let SWIPE_THRESHOLD: CGFloat = 20
 
 struct SwipeListView: View {
     
     @State var activeSwipeId: Int? = nil
     
+    // position of list itself; scrolling etc.
     @State var y: CGFloat = 0
     @State var previousY: CGFloat = 0
-    
     
     @State var isScrolling = false
     @State var canScroll = true
     @State var isBeingEdited = false
         
-
+    @State var activeGesture: ActiveGesture? = nil
+    
     var body: some View {
 
         let scrollDrag = DragGesture()
-            .onChanged{ value in
+            .onChanged { value in
                 print("scrollDrag onChanged")
                 
-                // if we're starting with a
-                
-//                // if we're not at
-//                if value.translation.height.magnitude < SCROLL_THRESHOLD {
-//                    isScrolling = false
-//                    return
-//                }
-                
-//                if canScroll && value.translation.height.magnitude < SCROLL_THRESHOLD {
-//                    isScrolling = false
-//                    return
-//                }
-                
-                // if more vertical than horizontal,
-                // then we're dragging
-//                if value.translation.height.magnitude > value.translation.width.magnitude {
-//                    print("scrollDrag onChanged: mostly vertical")
-//                    log("scrollDrag onChanged: value.translation.height: \(value.translation.height)")
-//                    log("scrollDrag onChanged: value.translation.width: \(value.translation.width)")
-//                    canScroll = true // added
-//                    isScrolling = true
-//                }
-                
-                
-                // don't consider ourselves scrolling unless we:
-                // - can scroll (= not swiping or dragging) and
-                // - have passed the threshold
-                if canScroll && value.translation.height.magnitude < SCROLL_THRESHOLD {
-                    isScrolling = false
-                    return
+                // if we're not in the middle opf
+                if !activeGesture.isDefined
+                    && value.translation.height > SCROLL_THRESHOLD {
+                    print("scrollDrag onChanged: setting us to scroll")
+                    activeGesture = .scrolling
                 }
                 
-                
-                // ^^ but how to add this back then?
-                
-                if canScroll {
-                    
-//                    if value.translation.height.magnitude > value.translation.width.magnitude {
-//                        print("scrollDrag onChanged: mostly vertical")
-//                        log("scrollDrag onChanged: value.translation.height: \(value.translation.height)")
-//                        log("scrollDrag onChanged: value.translation.width: \(value.translation.width)")
-//                        canScroll = true // added
-//                        isScrolling = true
-//                    }
-                    
-                    
-                    print("scrollDrag onChanged: can scroll")
+                if activeGesture?.isScroll ?? false {
+                    print("scrollDrag onChanged: updating per scroll")
                     y = value.translation.height + previousY
-                    isScrolling = true
                 }
+                
+                
             }.onEnded { value in
                 print("scrollDrag onEnded")
                 
-                // always set this false?
-                isScrolling = false
-                
-                if canScroll {
-                    print("scrollDrag onEnded: can scroll")
+                if activeGesture?.isScroll ?? false {
+                    print("scrollDrag onEnded: resetting scroll")
+                    activeGesture = nil
                     previousY = y
-                    isScrolling = false
                 }
             }
         
@@ -106,7 +104,6 @@ struct SwipeListView: View {
                 }
             }
             .scaleEffect(1.5)
-            
             
             listBody.simultaneousGesture(scrollDrag)
         }
@@ -127,18 +124,20 @@ struct SwipeListView: View {
                       activeSwipeId: $activeSwipeId,
                       y: 0,
                       previousY: 0,
-                      isScrolling: $isScrolling,
-                      canScroll: $canScroll,
-                      isBeingEdited: isBeingEdited)
+//                      isScrolling: $isScrolling,
+//                      canScroll: $canScroll,
+                      isBeingEdited: isBeingEdited,
+                      activeGesture: $activeGesture)
             SwipeView(id: 2,
                       activeSwipeId: $activeSwipeId,
                       y: 500,
                       previousY: 500,
 //                      y: 125,
 //                      previousY: 125,
-                      isScrolling: $isScrolling,
-                      canScroll: $canScroll,
-                      isBeingEdited: isBeingEdited)
+//                      isScrolling: $isScrolling,
+//                      canScroll: $canScroll,
+                      isBeingEdited: isBeingEdited,
+                      activeGesture: $activeGesture)
             
 //            SwipeView(id: 3,
 //                      activeSwipeId: $activeSwipeId,
