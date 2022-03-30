@@ -1914,7 +1914,7 @@ struct DragListView: View {
 
         
         // DISABLED FOR NOW
-        
+         
 //            .offset(x: -200, y: y - 500)
 //            .contentShape(Rectangle())
 //            .border(.red)
@@ -2181,11 +2181,11 @@ let sampleColors4: [MyColor] = [
 
 func generateData() -> MasterList {
     MasterList.fromColors(
-//                sampleColors0
+        sampleColors0
 //        sampleColors1
 //        sampleColors2
 //        sampleColors3
-        sampleColors4
+//        sampleColors4
     )
 }
 
@@ -2193,9 +2193,13 @@ func generateData() -> MasterList {
 
 struct ContentView: View {
     
+    @State var fakeSwipeId: Int? = 1
+    
     var body: some View {
 //        DragListView()
-//        SwipeView()
+//        SwipeView(id: 1,
+//                  activeSwipeId: $fakeSwipeId)
+//            .offset(y: -300)
         SwipeListView()
     }
     

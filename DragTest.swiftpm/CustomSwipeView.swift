@@ -12,23 +12,78 @@ let SWIPE_RECT_WIDTH: CGFloat = 1000
 
 // will be CustomListItemView's height
 //let SWIPE_RECT_HEIGHT: CGFloat = 500
-let SWIPE_RECT_HEIGHT: CGFloat = 250
+
+//let SWIPE_RECT_HEIGHT: CGFloat = 250
+let SWIPE_RECT_HEIGHT: CGFloat = 100
+//let SWIPE_RECT_HEIGHT: CGFloat = 24
 
 //let SWIPE_OPTION_OPACITY = 0.5
 //let SWIPE_OPTION_OPACITY = 0.8
 let SWIPE_OPTION_OPACITY: CGFloat = 1
+
+//let SWIPE_FULL_CORNER_RADIUS: CGFloat = 16
+//let SWIPE_FULL_CORNER_RADIUS: CGFloat = 12
+let SWIPE_FULL_CORNER_RADIUS: CGFloat = 8
 
 
 struct SwipeListView: View {
     
     @State var activeSwipeId: Int? = nil
     
+    @State var y: CGFloat = 0
+    @State var previousY: CGFloat = 0
+    
+    
+    @State var isScrolling = false
+    @State var canScroll = true
+    
+    let nativeListWidth: CGFloat = 800
+    
     var body: some View {
-        VStack(spacing: 60) {
-            SwipeView(id: 1, activeSwipeId: $activeSwipeId)
-            SwipeView(id: 2, activeSwipeId: $activeSwipeId)
+        listView
+            .frame(width: nativeListWidth, height: 900)
+//        .offset(x: -200, y: y - 500)
+        .offset(y: y - 400)
+        .contentShape(Rectangle())
+        .border(.red)
+        .gesture(DragGesture()
+                    .onChanged({ value in
+            print("list drag onChanged")
+            if canScroll {
+                y = value.translation.height + previousY
+                isScrolling = true
+            }
+            
+//            y = value.translation.height + previousY
+//            isScrolling = true
+        }).onEnded({ value in
+            print("list drag onEnded")
+            if canScroll {
+                previousY = y
+                isScrolling = false
+            }
+        }))
+    }
+    
+    var listView: some View {
+//        VStack(spacing: 60) {
+        ZStack {
+            SwipeView(id: 1,
+                      activeSwipeId: $activeSwipeId,
+                      y: 0,
+                      previousY: 0,
+                      isScrolling: $isScrolling,
+                      canScroll: $canScroll)
+            SwipeView(id: 2,
+                      activeSwipeId: $activeSwipeId,
+                      y: 500,
+                      previousY: 500,
+                      isScrolling: $isScrolling,
+                      canScroll: $canScroll)
         }
     }
+    
+    
     
 }
 
@@ -38,13 +93,11 @@ struct SwipeView: View {
     // position of swipe menu
     @State var x: CGFloat = 0
     @State var previousX: CGFloat = 0
-    
-//    @State var x: CGFloat = 200
-//    @State var previousX: CGFloat = 200
-        
+            
     let id: Int
     
     @Binding var activeSwipeId: Int?
+    
     
     // 30% of view's width
 //    let RESTING_THRESHOLD: CGFloat = SWIPE_RECT_WIDTH / 3
@@ -54,29 +107,109 @@ struct SwipeView: View {
     // 75% of view's width
     let DEFAULT_ACTION_THRESHOLD: CGFloat = SWIPE_RECT_WIDTH * 0.75
     
+    // position of view itself
+//    @State var y: CGFloat = 0
+//    @State var previousY: CGFloat = 0
+    
+    // just move the second one down a bit
+    @State var y: CGFloat // = id == 2 ? 500 : 0
+    @State var previousY: CGFloat // = id == 2 ? 500 : 0
+    
+    @Binding var isScrolling: Bool
+    @Binding var canScroll: Bool
+    
+    @State var isDragging: Bool = false
+    
+//    @State var isLongPressing: Bool = false
+    
+    var canSwipe: Bool {
+        !isScrolling && !isDragging
+    }
+    
+    
+    
     var body: some View {
+        
+        let longPress = LongPressGesture(minimumDuration: 0.5).onEnded { _ in
+            isDragging = true
+        }
+        
+        let dragAfterLongPress = DragGesture()
+            .onChanged { value in
+                print("list drag onChanged")
+                y = value.translation.height + previousY
+                isScrolling = false
+                canScroll = false
+                isDragging = true
+//                isLongPressing = false
+            }.onEnded { value in
+                print("list drag onEnded")
+                previousY = y
+                isScrolling = false
+                canScroll = true
+                isDragging = false
+            }
+
+        let combined = longPress.sequenced(before: dragAfterLongPress)
+        
         VStack(spacing: 20) {
-            VStack(spacing: 5) {
+            debugInfo
+            customSwipeItem
+        }
+        .offset(y: y)
+                
+        // if we're dragging this child,
+        // then we can't scroll,
+        .simultaneousGesture(combined)
+        
+        // What's the real animation here?
+        .animation(.linear(duration: 0.3), value: x)
+        
+        // if we swiped on another item,
+        // reset this item's swipe
+        .onChange(of: activeSwipeId) { newValue in
+            x = 0
+            previousX = 0
+        }
+        // if we start scrolling, reset swipe
+        .onChange(of: isScrolling) { newValue in
+            if newValue {
+                x = 0
+                previousX = 0
+            }
+        }
+        // if we start dragging this item, reset swipe
+        .onChange(of: isDragging) { newValue in
+            if newValue {
+                x = 0
+                previousX = 0
+            }
+        }
+
+        
+    }
+    
+    var debugInfo: some View {
+        VStack(spacing: 5) {
+            Group {
                 Text("x: \(x)")
                 Text("previousX: \(previousX)")
                 Text("SWIPE_RECT_WIDTH - x: \(SWIPE_RECT_WIDTH - x)")
                 Text("RESTING_THRESHOLD: \(RESTING_THRESHOLD)")
                 Text("RESTING_THRESHOLD_POSITION: \(RESTING_THRESHOLD_POSITION)")
                 Text("DEFAULT_ACTION_THRESHOLD: \(DEFAULT_ACTION_THRESHOLD)")
+            }
+            Group {
                 Text("optionSpace: \(optionSpace)")
                 Text("optionPadding: \(optionPadding)")
+                Text("swipeMenuCornerRadius: \(swipeMenuCornerRadius)")
+                Text("isScrolling: \(isScrolling.description)")
+                Text("canScroll: \(canScroll.description)")
+                Text("isDragging: \(isDragging.description)")
+                Text("canSwipe: \(canSwipe.description)")
             }
-//            .offset(y: -50)
-            .scaleEffect(1.1)
-            
-            customSwipeItem
         }
-        // What's the real animation here?
-        .animation(.linear(duration: 0.3), value: x)
-        .onChange(of: activeSwipeId) { newValue in
-            x = 0
-            previousX = 0
-        }
+        .scaleEffect(1.1)
     }
     
     var atDefaultActionThreshold: Bool {
@@ -86,11 +219,16 @@ struct SwipeView: View {
     var hasCrossedRestingThreshold: Bool {
         x >= RESTING_THRESHOLD
     }
-    
+        
     var customSwipeItem: some View {
         
         let onDragChanged: OnSwipeDragChanged = { (translationWidth: CGFloat) in
             print("onDragChanged called")
+            
+            if !canSwipe {
+                return
+            }
+            
             
             x = previousX - translationWidth
             
@@ -104,6 +242,11 @@ struct SwipeView: View {
         
         let onDragEnded: OnSwipeDragEnded = {
             print("onDragEnded called")
+            
+            if !canSwipe {
+                return
+            }
+            
             if atDefaultActionThreshold {
                 // Don't need to change x position here,
                 // since redOption's offset handles that.
@@ -136,10 +279,10 @@ struct SwipeView: View {
             rect
             // size decreases as menu takes up more space
                 .frame(width: SWIPE_RECT_WIDTH - x)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .clipShape(RoundedRectangle(cornerRadius: SWIPE_FULL_CORNER_RADIUS))
             
             swipeMenu
-                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .clipShape(RoundedRectangle(cornerRadius: swipeMenuCornerRadius))
             // constant:
                 .frame(width: SWIPE_RECT_WIDTH)
             
@@ -171,6 +314,12 @@ struct SwipeView: View {
         if atDefaultActionThreshold || x == 0 {
             return 0
         }
+        // if we've started dragging,
+        // then introduce slight padding
+        else if x < 10 {
+            return x
+        }
+        // eventually we reach full padding
         return 10
     }
     
@@ -194,8 +343,9 @@ struct SwipeView: View {
         return menuSpace / numberofOptions
     }
     
+    // For proper alignment of icons
     var optionPadding: CGFloat {
-        
+                
         let tenPercentMargin = optionSpace * 0.1
         let minimum = tenPercentMargin < 10 ? 10 : tenPercentMargin
                 
@@ -224,6 +374,22 @@ struct SwipeView: View {
             return space
         }
     }
+    
+    // decrease the corner radius on swipe menu as we get smaller;
+    // note that item's corner radius DOES NOT change
+    var swipeMenuCornerRadius: CGFloat {
+        if optionSpace < 4 {
+            return SWIPE_FULL_CORNER_RADIUS * 0.5
+        }
+        else if optionSpace < 8 {
+            return SWIPE_FULL_CORNER_RADIUS * 0.8
+        }
+        else {
+            // default
+            return SWIPE_FULL_CORNER_RADIUS
+        }
+    }
+    
     
     var swipeMenu: some View {
         
@@ -282,7 +448,7 @@ struct SwipeView: View {
             
             // TODO: Why must place corner radius here, before .offset,
             // to get the proper edge-rounding?
-                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .clipShape(RoundedRectangle(cornerRadius: swipeMenuCornerRadius))
                 .offset(x: SWIPE_RECT_WIDTH - (optionSpace * 3))
             
             tealOption.zIndex(-1)
