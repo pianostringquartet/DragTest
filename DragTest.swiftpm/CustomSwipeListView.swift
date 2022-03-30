@@ -8,11 +8,12 @@
 import Foundation
 import SwiftUI
 
-// `ActiveGesture?`
+
 enum ActiveGesture: Equatable {
     case scrolling, // scrolling the entire list
-         dragging, // drag or (long press + drag); on a single item
-         swiping // swiping single item
+         dragging(Int), // drag or (long press + drag); on a single item
+         swiping, // swiping single item
+         none
     
     var isScroll: Bool {
         switch self {
@@ -32,9 +33,27 @@ enum ActiveGesture: Equatable {
         }
     }
     
+    var dragId: Int? {
+        switch self {
+        case .dragging(let x):
+            return x
+        default:
+            return nil
+        }
+    }
+    
     var isSwipe: Bool {
         switch self {
         case .swiping:
+            return true
+        default:
+            return false
+        }
+    }
+    
+    var isNone: Bool {
+        switch self {
+        case .none:
             return true
         default:
             return false
@@ -61,7 +80,7 @@ struct SwipeListView: View {
     @State var canScroll = true
     @State var isBeingEdited = false
         
-    @State var activeGesture: ActiveGesture? = nil
+    @State var activeGesture: ActiveGesture = .none
     
     var body: some View {
 
@@ -70,13 +89,13 @@ struct SwipeListView: View {
                 print("scrollDrag onChanged")
                 
                 // if we're not in the middle opf
-                if !activeGesture.isDefined
+                if activeGesture.isNone
                     && value.translation.height.magnitude > SCROLL_THRESHOLD {
                     print("scrollDrag onChanged: setting us to scroll")
                     activeGesture = .scrolling
                 }
                 
-                if activeGesture?.isScroll ?? false {
+                if activeGesture.isScroll {
                     print("scrollDrag onChanged: updating per scroll")
                     y = value.translation.height + previousY
                 }
@@ -85,9 +104,9 @@ struct SwipeListView: View {
             }.onEnded { value in
                 print("scrollDrag onEnded")
                 
-                if activeGesture?.isScroll ?? false {
+                if activeGesture.isScroll {
                     print("scrollDrag onEnded: resetting scroll")
-                    activeGesture = nil
+                    activeGesture = .none
                     previousY = y
                 }
             }
@@ -98,10 +117,22 @@ struct SwipeListView: View {
                     Text("list y: \(y)")
                     Text("list previousY: \(previousY)")
                 }
-                Rectangle().fill(.clear).frame(width: 250)
-                Text("EDIT MODE?: \(isBeingEdited.description)").onTapGesture {
-                    isBeingEdited.toggle()
-                }
+//                Rectangle().fill(.clear).frame(width: 250)
+                Rectangle().fill(.clear).frame(width: 10)
+//                Text("EDIT MODE?: \(isBeingEdited.description)").onTapGesture {
+//                    isBeingEdited.toggle()
+//                }
+                
+//                VStack(alignment: .leading) {
+//                    Text("Gesture")
+//                    Text(" \(activeGesture.debugDescription)")
+//                        .frame(width: 350)
+//                        .border(.green)
+//
+//                }
+                
+                
+                
             }
             .scaleEffect(1.5)
             
@@ -124,41 +155,35 @@ struct SwipeListView: View {
                       activeSwipeId: $activeSwipeId,
                       y: 0,
                       previousY: 0,
-//                      isScrolling: $isScrolling,
-//                      canScroll: $canScroll,
                       isBeingEdited: isBeingEdited,
                       activeGesture: $activeGesture)
             SwipeView(id: 2,
                       activeSwipeId: $activeSwipeId,
-                      y: 500,
-                      previousY: 500,
-//                      y: 125,
-//                      previousY: 125,
-//                      isScrolling: $isScrolling,
-//                      canScroll: $canScroll,
+//                      y: 500,
+//                      previousY: 500,
+                      y: 60,
+                      previousY: 60,
+                      isBeingEdited: isBeingEdited,
+                      activeGesture: $activeGesture)
+            SwipeView(id: 3,
+                      activeSwipeId: $activeSwipeId,
+                      y: 120,
+                      previousY: 120,
+                      isBeingEdited: isBeingEdited,
+                      activeGesture: $activeGesture)
+            SwipeView(id: 4,
+                      activeSwipeId: $activeSwipeId,
+                      y: 180,
+                      previousY: 180,
+                      isBeingEdited: isBeingEdited,
+                      activeGesture: $activeGesture)
+            SwipeView(id: 5,
+                      activeSwipeId: $activeSwipeId,
+                      y: 240,
+                      previousY: 240,
                       isBeingEdited: isBeingEdited,
                       activeGesture: $activeGesture)
             
-//            SwipeView(id: 3,
-//                      activeSwipeId: $activeSwipeId,
-////                      y: 500,
-////                      previousY: 500,
-//                      y: 250,
-//                      previousY: 250,
-//                      isScrolling: $isScrolling,
-//                      canScroll: $canScroll,
-//                      isBeingEdited: isBeingEdited)
-//
-//
-//            SwipeView(id: 4,
-//                      activeSwipeId: $activeSwipeId,
-////                      y: 500,
-////                      previousY: 500,
-//                      y: 375,
-//                      previousY: 375,
-//                      isScrolling: $isScrolling,
-//                      canScroll: $canScroll,
-//                      isBeingEdited: isBeingEdited)
             
         }
     }

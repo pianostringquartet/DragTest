@@ -14,8 +14,8 @@ let SWIPE_RECT_WIDTH: CGFloat = 1000
 //let SWIPE_RECT_HEIGHT: CGFloat = 500
 
 //let SWIPE_RECT_HEIGHT: CGFloat = 250
-let SWIPE_RECT_HEIGHT: CGFloat = 100
-//let SWIPE_RECT_HEIGHT: CGFloat = 24
+//let SWIPE_RECT_HEIGHT: CGFloat = 100
+let SWIPE_RECT_HEIGHT: CGFloat = 37
 
 //let SWIPE_OPTION_OPACITY = 0.5
 //let SWIPE_OPTION_OPACITY = 0.8
@@ -24,7 +24,6 @@ let SWIPE_OPTION_OPACITY: CGFloat = 1
 //let SWIPE_FULL_CORNER_RADIUS: CGFloat = 16
 //let SWIPE_FULL_CORNER_RADIUS: CGFloat = 12
 let SWIPE_FULL_CORNER_RADIUS: CGFloat = 8
-
 
 
 struct SwipeView: View {
@@ -37,7 +36,6 @@ struct SwipeView: View {
     
     @Binding var activeSwipeId: Int?
     
-    
     // 30% of view's width
 //    let RESTING_THRESHOLD: CGFloat = SWIPE_RECT_WIDTH / 3
     let RESTING_THRESHOLD: CGFloat = SWIPE_RECT_WIDTH * 0.2
@@ -46,71 +44,36 @@ struct SwipeView: View {
     // 75% of view's width
     let DEFAULT_ACTION_THRESHOLD: CGFloat = SWIPE_RECT_WIDTH * 0.75
     
-    // position of view itself
-//    @State var y: CGFloat = 0
-//    @State var previousY: CGFloat = 0
-    
-    // just move the second one down a bit
-    @State var y: CGFloat // = id == 2 ? 500 : 0
-    @State var previousY: CGFloat // = id == 2 ? 500 : 0
-    
-//    @Binding var isScrolling: Bool
-    
-    // doesn't need to be binding, because we don't need to edit it here?
-    
-    // DOES need to be a binding,
-    // so that we can block any other scrolling
-//    @Binding var isScrolling: Bool
-//    @Binding var canScroll: Bool
-//    @State var isDragging: Bool = false
-    
+    // position of item-view itself
+    @State var y: CGFloat
+    @State var previousY: CGFloat
+        
     let isBeingEdited: Bool
     
-    @Binding var activeGesture: ActiveGesture?
-    
-    
-    // can only swipe if not doing something
-//    var canSwipe: Bool {
-////        !isScrolling && !isDragging
-//        !activeGesture.isDefined
-//    }
+    @Binding var activeGesture: ActiveGesture
     
     var body: some View {
         
-//        let pressDuration = isBeingEdited ? 0 : 0.5
-        let pressDuration = 0.5
-        
-        let longPress = LongPressGesture(minimumDuration: pressDuration).onEnded { _ in
+        let longPress = LongPressGesture(minimumDuration: 0.5).onEnded { _ in
             print("longPress onChanged")
-//            isScrolling = false
-//            canScroll = false
-//            isDragging = true
-            activeGesture = .dragging
+            activeGesture = .dragging(id)
         }
         
         let itemDrag = DragGesture()
             .onChanged { value in
                 print("itemDrag onChanged")
                 y = value.translation.height + previousY
-                activeGesture = .dragging
-                
-//                isScrolling = false
-//                canScroll = false
-//                isDragging = true
-//                isLongPressing = false
+                activeGesture = .dragging(id)
             }.onEnded { value in
                 print("itemDrag onEnded")
                 previousY = y
-                activeGesture = nil
-//                isScrolling = false
-//                canScroll = true
-//                isDragging = false
+                activeGesture = .none
             }
 
         let combined = longPress.sequenced(before: itemDrag)
         
         VStack(spacing: 20) {
-            debugInfo
+//            debugInfo
             customSwipeItem
         }
         .offset(y: y)
@@ -118,9 +81,6 @@ struct SwipeView: View {
         // if we're dragging this child,
         // then we can't scroll,
         .simultaneousGesture(combined)
-        
-        // can't do these because the types are different
-//        .simultaneousGesture(isBeingEdited ? itemDrag : combined)
         
         // What's the real animation here?
         .animation(.linear(duration: 0.3), value: x)
@@ -131,31 +91,18 @@ struct SwipeView: View {
             x = 0
             previousX = 0
         }
-        // if we start scrolling, reset swipe
-//        .onChange(of: isScrolling) { newValue in
-//            if newValue {
-//                x = 0
-//                previousX = 0
-//            }
-//        }
-//        // if we start dragging this item, reset swipe
-//        .onChange(of: isDragging) { newValue in
-//            if newValue {
-//                x = 0
-//                previousX = 0
-//            }
-//        }
-
         .onChange(of: activeGesture) { (newValue) in
-            if let activeGesture = activeGesture {
-                switch activeGesture {
-                case .scrolling, .dragging:
-                    x = 0
-                    previousX = 0
-                default:
-                    return
-                }
+            
+            switch newValue {
+                // if we start scrolling or dragging,
+                // reset swipe
+            case .scrolling, .dragging:
+                x = 0
+                previousX = 0
+            default:
+                return
             }
+            
             
         }
         
@@ -183,7 +130,7 @@ struct SwipeView: View {
 //                Text("isDragging: \(isDragging.description)")
 //                Text("canSwipe: \(canSwipe.description)")
                 
-                Text("activeGesture: \(activeGesture.debugDescription)")
+//                Text("activeGesture: \(activeGesture)")
             }
         }
         .scaleEffect(1.2)
@@ -212,14 +159,14 @@ struct SwipeView: View {
             // if we have no active gesture,
             // and we met the swipe threshold,
             // then we can begin swiping
-            if !activeGesture.isDefined
+            if activeGesture.isNone
                 && translationWidth.magnitude > SWIPE_THRESHOLD {
                 print("onSwipeChanged: setting us to swipe")
                 
                 activeGesture = .swiping
             }
             
-            if activeGesture?.isSwipe ?? false {
+            if activeGesture.isSwipe {
                 print("onSwipeChanged: updating per swipe")
                 
                 x = previousX - translationWidth
@@ -238,9 +185,9 @@ struct SwipeView: View {
             
             // if we had been swiping,
             // then we resset activeGesture
-            if activeGesture?.isSwipe ?? false {
+            if activeGesture.isSwipe {
                 print("onSwipeEnded onEnded: resetting swipe")
-                activeGesture = nil
+                activeGesture = .none
                 
                 if atDefaultActionThreshold {
                     // Don't need to change x position here,
@@ -324,7 +271,8 @@ struct SwipeView: View {
     
     // ie the item
     var rect: some View {
-        let color: Color = (activeGesture?.isDrag ?? false) ? .green : .indigo
+        let dragging = activeGesture.dragId.map { $0 == id } ?? false
+        let color: Color = dragging ? .green : .indigo
         
         return Rectangle().fill(color.opacity(0.3)).overlay {
             Text("id: \(id)")

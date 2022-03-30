@@ -2208,7 +2208,7 @@ struct ContentView: View {
                 id = Int.random(in: 0..<9999)
             }
             .scaleEffect(1.5)
-            .offset(x: 400)
+            .offset(x: 400, y: -50)
         }
     }
     
