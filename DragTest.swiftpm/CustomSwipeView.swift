@@ -59,7 +59,7 @@ struct SwipeView: View {
             activeGesture = .dragging(id)
         }
         
-        let itemDrag = DragGesture()
+        let itemDrag = DragGesture(minimumDistance: 0)
             .onChanged { value in
                 print("itemDrag onChanged")
                 y = value.translation.height + previousY
