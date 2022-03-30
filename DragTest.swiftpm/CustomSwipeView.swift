@@ -26,67 +26,6 @@ let SWIPE_OPTION_OPACITY: CGFloat = 1
 let SWIPE_FULL_CORNER_RADIUS: CGFloat = 8
 
 
-struct SwipeListView: View {
-    
-    @State var activeSwipeId: Int? = nil
-    
-    @State var y: CGFloat = 0
-    @State var previousY: CGFloat = 0
-    
-    
-    @State var isScrolling = false
-    @State var canScroll = true
-    
-    let nativeListWidth: CGFloat = 800
-    
-    var body: some View {
-        listView
-            .frame(width: nativeListWidth, height: 900)
-//        .offset(x: -200, y: y - 500)
-        .offset(y: y - 400)
-        .contentShape(Rectangle())
-        .border(.red)
-        .gesture(DragGesture()
-                    .onChanged({ value in
-            print("list drag onChanged")
-            if canScroll {
-                y = value.translation.height + previousY
-                isScrolling = true
-            }
-            
-//            y = value.translation.height + previousY
-//            isScrolling = true
-        }).onEnded({ value in
-            print("list drag onEnded")
-            if canScroll {
-                previousY = y
-                isScrolling = false
-            }
-        }))
-    }
-    
-    var listView: some View {
-//        VStack(spacing: 60) {
-        ZStack {
-            SwipeView(id: 1,
-                      activeSwipeId: $activeSwipeId,
-                      y: 0,
-                      previousY: 0,
-                      isScrolling: $isScrolling,
-                      canScroll: $canScroll)
-            SwipeView(id: 2,
-                      activeSwipeId: $activeSwipeId,
-                      y: 500,
-                      previousY: 500,
-                      isScrolling: $isScrolling,
-                      canScroll: $canScroll)
-        }
-    }
-    
-    
-    
-}
-
 
 struct SwipeView: View {
     
@@ -115,22 +54,36 @@ struct SwipeView: View {
     @State var y: CGFloat // = id == 2 ? 500 : 0
     @State var previousY: CGFloat // = id == 2 ? 500 : 0
     
+//    @Binding var isScrolling: Bool
+    
+    // doesn't need to be binding, because we don't need to edit it here?
+    
+    // DOES need to be a binding,
+    // so that we can block any other scrolling
     @Binding var isScrolling: Bool
+    
     @Binding var canScroll: Bool
     
     @State var isDragging: Bool = false
     
+    let isBeingEdited: Bool
+    
     var canSwipe: Bool {
         !isScrolling && !isDragging
-    }    
+    }
     
     var body: some View {
         
-        let longPress = LongPressGesture(minimumDuration: 0.5).onEnded { _ in
+//        let pressDuration = isBeingEdited ? 0 : 0.5
+        let pressDuration = 0.5
+        
+        let longPress = LongPressGesture(minimumDuration: pressDuration).onEnded { _ in
+            isScrolling = false
+            canScroll = false
             isDragging = true
         }
         
-        let dragAfterLongPress = DragGesture()
+        let itemDrag = DragGesture()
             .onChanged { value in
                 print("list drag onChanged")
                 y = value.translation.height + previousY
@@ -146,7 +99,7 @@ struct SwipeView: View {
                 isDragging = false
             }
 
-        let combined = longPress.sequenced(before: dragAfterLongPress)
+        let combined = longPress.sequenced(before: itemDrag)
         
         VStack(spacing: 20) {
             debugInfo
@@ -157,6 +110,9 @@ struct SwipeView: View {
         // if we're dragging this child,
         // then we can't scroll,
         .simultaneousGesture(combined)
+        
+        // can't do these because the types are different
+//        .simultaneousGesture(isBeingEdited ? itemDrag : combined)
         
         // What's the real animation here?
         .animation(.linear(duration: 0.3), value: x)
@@ -190,22 +146,26 @@ struct SwipeView: View {
             Group {
                 Text("x: \(x)")
                 Text("previousX: \(previousX)")
-                Text("SWIPE_RECT_WIDTH - x: \(SWIPE_RECT_WIDTH - x)")
-                Text("RESTING_THRESHOLD: \(RESTING_THRESHOLD)")
-                Text("RESTING_THRESHOLD_POSITION: \(RESTING_THRESHOLD_POSITION)")
-                Text("DEFAULT_ACTION_THRESHOLD: \(DEFAULT_ACTION_THRESHOLD)")
+                Text("item y: \(y)")
+                Text("item previousY: \(previousY)")
+                
+//                Text("SWIPE_RECT_WIDTH - x: \(SWIPE_RECT_WIDTH - x)")
+//                Text("RESTING_THRESHOLD: \(RESTING_THRESHOLD)")
+//                Text("RESTING_THRESHOLD_POSITION: \(RESTING_THRESHOLD_POSITION)")
+//                Text("DEFAULT_ACTION_THRESHOLD: \(DEFAULT_ACTION_THRESHOLD)")
             }
             Group {
-                Text("optionSpace: \(optionSpace)")
-                Text("optionPadding: \(optionPadding)")
-                Text("swipeMenuCornerRadius: \(swipeMenuCornerRadius)")
+//                Text("optionSpace: \(optionSpace)")
+//                Text("optionPadding: \(optionPadding)")
+//                Text("swipeMenuCornerRadius: \(swipeMenuCornerRadius)")
                 Text("isScrolling: \(isScrolling.description)")
                 Text("canScroll: \(canScroll.description)")
                 Text("isDragging: \(isDragging.description)")
                 Text("canSwipe: \(canSwipe.description)")
             }
         }
-        .scaleEffect(1.1)
+        .scaleEffect(1.2)
+//        .scaleEffect(1.3)
     }
     
     var atDefaultActionThreshold: Bool {
@@ -218,14 +178,43 @@ struct SwipeView: View {
         
     var customSwipeItem: some View {
         
-        let onDragChanged: OnSwipeDragChanged = { (translationWidth: CGFloat) in
-            print("onDragChanged called")
+        let onSwipeDragChanged: OnSwipeDragChanged = {
+//            (translationWidth: CGFloat) in
+            (translation: CGSize) in
+            print("onSwipeDragChanged called")
             
+            // dis-able scrolling during the gesture
+//            canScroll = false
+            
+            // ^^ this won't be enough ?
+            // w
+            
+            let translationHeight: CGFloat = translation.height
+            let translationWidth: CGFloat = translation.width
+            
+            // we really only want to worry about primarily horizontal gestures
+            
+            // if we're primarily going horizontal,
+            // then we'll interpret that as a swipe
+            
+            if translationWidth.magnitude > translationHeight.magnitude {
+                canScroll = false
+                isScrolling = false
+            }
+            
+            // this should be?: if we're more horizontal than vertical,
+            // AND not already scrolling
+            // (otherwise we
+//            if translationWidth.magnitude > translationHeight.magnitude
+//                && isScrolling {
+//                canScroll = false
+//            }
+            
+                
             if !canSwipe {
                 return
             }
-            
-            
+                        
             x = previousX - translationWidth
             
             // never let us drag the list eastward beyond its frame
@@ -236,8 +225,12 @@ struct SwipeView: View {
             activeSwipeId = id
         }
         
-        let onDragEnded: OnSwipeDragEnded = {
-            print("onDragEnded called")
+        let onSwipeDragEnded: OnSwipeDragEnded = {
+            print("onSwipeDragEnded called")
+            
+            // re-enable scroll
+            canScroll = true
+            isScrolling = false
             
             if !canSwipe {
                 return
@@ -263,12 +256,12 @@ struct SwipeView: View {
         }
         
         
-        let drag = DragGesture().onChanged { value in
+        let swipeDrag = DragGesture().onChanged { value in
 //            log("DragGesture: onChanged")
-            onDragChanged(value.translation.width)
+            onSwipeDragChanged(value.translation)
         }.onEnded { value in
 //            log("DragGesture: onEnded")
-            onDragEnded()
+            onSwipeDragEnded()
         }
                 
         return ZStack(alignment: .leading) {
@@ -293,14 +286,17 @@ struct SwipeView: View {
         .frame(height: SWIPE_RECT_HEIGHT, alignment: .leading)
         
         // overlay UIKit GestureRecognizer for 2-finger trackpad panning
-        .overlay(SwipeGestureRecognizerView(
-            onDragChanged: onDragChanged,
-            onDragEnded: onDragEnded))
+//        .overlay(SwipeGestureRecognizerView(
+//            onDragChanged: onDragChanged,
+//            onDragEnded: onDragEnded))
                 
         // drag must be on outside, since we can drag
         // on an open menu;
         // must come AFTER UIKit GestureRecognizer
-        .gesture(drag)
+        .gesture(swipeDrag)
+        
+        // ^^ should this be a simultaneous?
+        
     }
     
     var menuPadding: CGFloat {
@@ -321,7 +317,9 @@ struct SwipeView: View {
     
     // ie the item
     var rect: some View {
-        Rectangle().fill(.indigo.opacity(0.3)).overlay {
+        let color: Color = isDragging ? .green : .indigo
+        
+        return Rectangle().fill(color.opacity(0.3)).overlay {
             Text("id: \(id)")
         }
     }
@@ -455,16 +453,3 @@ struct SwipeView: View {
         }
     }
 }
-
-
-//struct CustomSwipeView: View {
-//    var body: some View {
-//        Text(/*@START_MENU_TOKEN@*/"Hello, World!"/*@END_MENU_TOKEN@*/)
-//    }
-//}
-//
-//struct CustomSwipeView_Previews: PreviewProvider {
-//    static var previews: some View {
-//        CustomSwipeView()
-//    }
-//}

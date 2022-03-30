@@ -9,7 +9,8 @@ import Foundation
 import UIKit
 import SwiftUI
 
-typealias OnSwipeDragChanged = (CGFloat) -> ()
+//typealias OnSwipeDragChanged = (CGFloat) -> ()
+typealias OnSwipeDragChanged = (CGSize) -> ()
 typealias OnSwipeDragEnded = () -> ()
 
 struct SwipeGestureRecognizerView: UIViewControllerRepresentable {
@@ -79,7 +80,8 @@ class SwipeGestureRecognizerVC: UIViewController {
             log("SwipeGestureRecognizerVC: screenPanInView: changed")
             if let onDragChanged = onDragChanged {
                 let translation = gestureRecognizer.translation(in: self.view)
-                onDragChanged(translation.x)
+                let translationSize = CGSize(width: translation.x, height: translation.y)
+                onDragChanged(translationSize)
             }
             
         case .ended, .cancelled:
