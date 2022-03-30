@@ -61,7 +61,7 @@ struct SwipeView: View {
     // DOES need to be a binding,
     // so that we can block any other scrolling
 //    @Binding var isScrolling: Bool
-//    @Binding var canScroll: Bool    
+//    @Binding var canScroll: Bool
 //    @State var isDragging: Bool = false
     
     let isBeingEdited: Bool
@@ -324,7 +324,6 @@ struct SwipeView: View {
     
     // ie the item
     var rect: some View {
-//        let color: Color = isDragging ? .green : .indigo
         let color: Color = (activeGesture?.isDrag ?? false) ? .green : .indigo
         
         return Rectangle().fill(color.opacity(0.3)).overlay {

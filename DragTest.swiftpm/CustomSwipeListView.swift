@@ -71,7 +71,7 @@ struct SwipeListView: View {
                 
                 // if we're not in the middle opf
                 if !activeGesture.isDefined
-                    && value.translation.height > SCROLL_THRESHOLD {
+                    && value.translation.height.magnitude > SCROLL_THRESHOLD {
                     print("scrollDrag onChanged: setting us to scroll")
                     activeGesture = .scrolling
                 }
