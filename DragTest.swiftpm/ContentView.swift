@@ -2195,12 +2195,21 @@ struct ContentView: View {
     
     @State var fakeSwipeId: Int? = 1
     
+    @State var id: Int = Int.random(in: 0..<9999)
+        
     var body: some View {
 //        DragListView()
 //        SwipeView(id: 1,
 //                  activeSwipeId: $fakeSwipeId)
 //            .offset(y: -300)
-        SwipeListView()
+        SwipeListView().id(id)
+            .overlay {
+            Text("RESET").onTapGesture {
+                id = Int.random(in: 0..<9999)
+            }
+            .scaleEffect(1.5)
+            .offset(x: 400)
+        }
     }
     
 }

@@ -78,6 +78,7 @@ struct SwipeView: View {
         let pressDuration = 0.5
         
         let longPress = LongPressGesture(minimumDuration: pressDuration).onEnded { _ in
+            print("longPress onChanged")
             isScrolling = false
             canScroll = false
             isDragging = true
@@ -85,14 +86,14 @@ struct SwipeView: View {
         
         let itemDrag = DragGesture()
             .onChanged { value in
-                print("list drag onChanged")
+                print("itemDrag onChanged")
                 y = value.translation.height + previousY
                 isScrolling = false
                 canScroll = false
                 isDragging = true
 //                isLongPressing = false
             }.onEnded { value in
-                print("list drag onEnded")
+                print("itemDrag onEnded")
                 previousY = y
                 isScrolling = false
                 canScroll = true
@@ -176,6 +177,8 @@ struct SwipeView: View {
         x >= RESTING_THRESHOLD
     }
         
+    
+    
     var customSwipeItem: some View {
         
         let onSwipeDragChanged: OnSwipeDragChanged = {
@@ -194,13 +197,37 @@ struct SwipeView: View {
             
             // we really only want to worry about primarily horizontal gestures
             
-            // if we're primarily going horizontal,
-            // then we'll interpret that as a swipe
+            // if we're as or more horizontal than vertical,
+            // then we're swiping
+//            if translationWidth.magnitude >= translationHeight.magnitude {
+//                print("onSwipeDragChanged: mostly horizontal")
+//                log("onSwipeDragChanged: translation.height: \(translation.height)")
+//                log("onSwipeDragChanged: translation.width: \(translation.width)")
+//                canScroll = false
+//                isScrolling = false
+//            }
             
-            if translationWidth.magnitude > translationHeight.magnitude {
+            
+            // ^^ good but gets called to easily
+            
+            // ^^ ideally? if we're already in the middle of a scroll,
+            // we can swipe
+            
+            
+            // if we didn't pass the threshold for scrolling,
+            // and aren't currently scrolling, then check if we should start a swipe
+            if !isScrolling
+                // ... should check if we passed through swiping threshold
+//                && translationWidth.magnitude >= translationHeight.magnitude {
+                && translationWidth.magnitude >= SWIPE_THRESHOLD {
+                print("onSwipeDragChanged: mostly horizontal")
+                log("onSwipeDragChanged: translation.height: \(translation.height)")
+                log("onSwipeDragChanged: translation.width: \(translation.width)")
                 canScroll = false
                 isScrolling = false
             }
+            
+            
             
             // this should be?: if we're more horizontal than vertical,
             // AND not already scrolling
@@ -210,8 +237,9 @@ struct SwipeView: View {
 //                canScroll = false
 //            }
             
-                
+//
             if !canSwipe {
+                print("onSwipeDragChanged: cannot swipe")
                 return
             }
                         
@@ -223,6 +251,7 @@ struct SwipeView: View {
             }
             
             activeSwipeId = id
+            print("onSwipeDragChanged: normal end")
         }
         
         let onSwipeDragEnded: OnSwipeDragEnded = {
@@ -233,6 +262,7 @@ struct SwipeView: View {
             isScrolling = false
             
             if !canSwipe {
+                print("onSwipeDragEnded: mostly horizontal")
                 return
             }
             
@@ -293,7 +323,8 @@ struct SwipeView: View {
         // drag must be on outside, since we can drag
         // on an open menu;
         // must come AFTER UIKit GestureRecognizer
-        .gesture(swipeDrag)
+//        .gesture(swipeDrag)
+        .simultaneousGesture(swipeDrag)
         
         // ^^ should this be a simultaneous?
         

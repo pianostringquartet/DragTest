@@ -10,7 +10,7 @@ import SwiftUI
 
 
 let SCROLL_THRESHOLD: CGFloat = 8
-
+let SWIPE_THRESHOLD: CGFloat = 8
 
 struct SwipeListView: View {
     
@@ -29,7 +29,7 @@ struct SwipeListView: View {
 
         let scrollDrag = DragGesture()
             .onChanged{ value in
-                print("list drag onChanged")
+                print("scrollDrag onChanged")
                 
                 // if we're starting with a
                 
@@ -39,24 +39,56 @@ struct SwipeListView: View {
 //                    return
 //                }
                 
+//                if canScroll && value.translation.height.magnitude < SCROLL_THRESHOLD {
+//                    isScrolling = false
+//                    return
+//                }
+                
+                // if more vertical than horizontal,
+                // then we're dragging
+//                if value.translation.height.magnitude > value.translation.width.magnitude {
+//                    print("scrollDrag onChanged: mostly vertical")
+//                    log("scrollDrag onChanged: value.translation.height: \(value.translation.height)")
+//                    log("scrollDrag onChanged: value.translation.width: \(value.translation.width)")
+//                    canScroll = true // added
+//                    isScrolling = true
+//                }
+                
+                
+                // don't consider ourselves scrolling unless we:
+                // - can scroll (= not swiping or dragging) and
+                // - have passed the threshold
                 if canScroll && value.translation.height.magnitude < SCROLL_THRESHOLD {
                     isScrolling = false
                     return
                 }
                 
+                
                 // ^^ but how to add this back then?
                 
                 if canScroll {
+                    
+//                    if value.translation.height.magnitude > value.translation.width.magnitude {
+//                        print("scrollDrag onChanged: mostly vertical")
+//                        log("scrollDrag onChanged: value.translation.height: \(value.translation.height)")
+//                        log("scrollDrag onChanged: value.translation.width: \(value.translation.width)")
+//                        canScroll = true // added
+//                        isScrolling = true
+//                    }
+                    
+                    
+                    print("scrollDrag onChanged: can scroll")
                     y = value.translation.height + previousY
                     isScrolling = true
                 }
             }.onEnded { value in
-                print("list drag onEnded")
+                print("scrollDrag onEnded")
                 
                 // always set this false?
                 isScrolling = false
                 
                 if canScroll {
+                    print("scrollDrag onEnded: can scroll")
                     previousY = y
                     isScrolling = false
                 }
