@@ -120,13 +120,9 @@ struct SwipeView: View {
     
     @State var isDragging: Bool = false
     
-//    @State var isLongPressing: Bool = false
-    
     var canSwipe: Bool {
         !isScrolling && !isDragging
-    }
-    
-    
+    }    
     
     var body: some View {
         
