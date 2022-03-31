@@ -454,11 +454,11 @@ let sampleColors4: [MyColor] = [
 
 func generateData() -> MasterList {
     MasterList.fromColors(
-        sampleColors0
+//        sampleColors0
 //        sampleColors1
 //        sampleColors2
 //        sampleColors3
-//        sampleColors4
+        sampleColors4
     )
 }
 
