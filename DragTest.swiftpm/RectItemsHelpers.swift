@@ -762,9 +762,7 @@ func calculateNewIndexOnDrag(item: RectItem,
 func maybeMoveIndices(_ items: RectItems,
                       indicesMoved: [Int],
                       to: Int,
-                      originalIndex: Int,
-                      //added
-                      maxIndex: Int) -> RectItems {
+                      originalIndex: Int) -> RectItems {
     
 //    log("maybeMoveIndices: indicesMoved: \(indicesMoved)")
 //    log("maybeMoveIndices: to: \(to)") // ie calculatedIndex
@@ -1413,6 +1411,7 @@ func onGroupClosed(closedId: ItemId,
 //                                             BeingDraggedItem,
 //                                             CursorDrag) {
 
+// from `DragTest`
 func onDragged(_ item: RectItem, // item being actively dragged
                _ translation: CGSize,
                _ masterList: MasterList) -> OnItemDraggedResult {
@@ -1462,87 +1461,22 @@ func onDragged(_ item: RectItem, // item being actively dragged
         movingDown: translation.height > 0,
         originalItemIndex: originalItemIndex,
         movedIndices: newIndices)
-    
-//    let maxMovedToIndex = getMaxMovedToIndex(
-//        item: item,
-//        items: masterList.items,
-//        draggedAlong: draggedAlong)
-//
-//    var calculatedIndex = getMovedtoIndex(
-//        item: item,
-//        items: masterList.items,
-//        draggedAlong: draggedAlong,
-//        maxIndex: maxMovedToIndex,
-//        movingDown: translation.height > 0)
-//
-//    let maxIndex = masterList.items.count - 1
-//
-//    print("onDragged: originalItemIndex: \(originalItemIndex)")
-//    print("onDragged: calculatedIndex was: \(calculatedIndex)")
-//
-//    calculatedIndex = adjustMoveToIndex(
-//        calculatedIndex: calculatedIndex,
-//        originalItemIndex: originalItemIndex,
-//        movedIndices: newIndices,
-//        maxIndex: maxIndex)
-//
-//    print("onDragged: calculatedIndex is now: \(calculatedIndex)")
-
-    // Is this maxIndex really correct?
-    let maxIndex = masterList.items.count - 1
-    
+        
     masterList.items = maybeMoveIndices(
         masterList.items,
         indicesMoved: newIndices,
         to: calculatedIndex,
-        originalIndex: originalItemIndex,
-        maxIndex: maxIndex)
+        originalIndex: originalItemIndex)
     
     let updatedOriginalIndex = item.itemIndex(masterList.items)
     // update `item` again!
     item = masterList.items[updatedOriginalIndex]
-    
-
-    
-    
+        
     return setItemsInGroupOrTopLevel(
         item: item,
         masterList: masterList,
         draggedAlong: draggedAlong,
         cursorDrag: cursorDrag)
-        
-
-//    let proposed = proposeGroup(
-//        item,
-//        masterList,
-//        draggedAlong.count,
-//        cursorDrag: cursorDrag)
-//
-//    let beingDragged = BeingDraggedItem(current: item.id,
-//                                        draggedAlong: draggedAlong)
-//
-//    log("onDrag: beingDragged: \(beingDragged)")
-//
-//
-//    if let proposed = proposed {
-//        log("onDragged: had proposed: \(proposed)")
-//        masterList.items = moveItemIntoGroup(item,
-//                                             masterList.items,
-//                                             draggedAlong: draggedAlong,
-//                                             proposed)
-//    }
-//
-//    // if no proposed group, then we moved item to top level:
-//    // 1. reset done-dragging item's x to `0`
-//    // 2. set item's parent to nil
-//    else {
-//        log("onDragged: no proposed group; will snap to top level")
-//        masterList.items = moveItemToTopLevel(item,
-//                                              masterList.items,
-//                                              draggedAlong: draggedAlong)
-//    }
-    
-//    return (masterList, proposed, beingDragged, cursorDrag)
 }
 
 
