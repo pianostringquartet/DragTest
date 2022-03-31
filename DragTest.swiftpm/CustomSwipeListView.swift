@@ -286,7 +286,7 @@ struct SwipeListView: View {
             isBeingEdited: isBeingEdited,
             activeGesture: $activeGesture)
         
-        return UIGestureOverlayView(content: scrollableList,
+        return CustomListScrollGestureRecognizer(content: scrollableList,
                                     onScrollChanged: onScrollChanged,
                                     onScrollEnded: onScrollEnded)
 //            .simultaneousGesture(scrollDrag)

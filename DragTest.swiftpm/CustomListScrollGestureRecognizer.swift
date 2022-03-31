@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  CustomListScrollgestureRecognizer.swift
 //  DragTest
 //
 //  Created by Christian J Clampitt on 3/30/22.
@@ -8,24 +8,26 @@
 import Foundation
 import SwiftUI
 
+// Handles:
+// - two fingers on trackpad list-scrolling
+// - one finger on screen list-scrolling
 
-//struct UIGestureOverlayView<T: View>: UIViewControllerRepresentable {
-struct UIGestureOverlayView: UIViewControllerRepresentable {
+struct CustomListScrollGestureRecognizer<T: View>: UIViewControllerRepresentable {
+//struct UIGestureOverlayView: UIViewControllerRepresentable {
 
-    let content: ScrollableListView
+//    let content: ScrollableListView
+    let content: T
     
     let onScrollChanged: OnDragChangedHandler
     let onScrollEnded: OnDragEndedHandler
 
-//    func makeUIViewController(context: Context) -> UIGestureOverlayVC<T> {
-    func makeUIViewController(context: Context) -> UIGestureOverlayVC {
-        UIGestureOverlayVC(content: UIHostingController(rootView: content),
+    func makeUIViewController(context: Context) -> CustomListScrollGestureVC<T> {
+        CustomListScrollGestureVC(content: UIHostingController(rootView: content),
                            onScrollChanged: onScrollChanged,
                            onScrollEnded: onScrollEnded)
     }
 
-//    func updateUIViewController(_ uiViewController: UIGestureOverlayVC<T>,
-    func updateUIViewController(_ uiViewController: UIGestureOverlayVC,
+    func updateUIViewController(_ uiViewController: CustomListScrollGestureVC<T>,
                                 context: Context) {
         uiViewController.swiftUIContent.rootView = content
     }
@@ -33,26 +35,20 @@ struct UIGestureOverlayView: UIViewControllerRepresentable {
 
 // Embed a SwiftUI view in a UIView which contains UIKit gesture recognizers.
 // User interactions reach both the UIView and SwiftUI views.
-//class UIGestureOverlayVC<T: View>: UIViewController {
-class UIGestureOverlayVC: UIViewController {
+class CustomListScrollGestureVC<T: View>: UIViewController {
 
-//    var swiftUIContent: UIHostingController<T>
-    var swiftUIContent: UIHostingController<ScrollableListView>
+    var swiftUIContent: UIHostingController<T>
     
     let onScrollChanged: OnDragChangedHandler?
     let onScrollEnded: OnDragEndedHandler?
 
-//    init(content: UIHostingController<T>) {
-//    init(content: UIHostingController<T>,
-    init(content: UIHostingController<ScrollableListView>,
+    init(content: UIHostingController<T>,
          onScrollChanged: OnDragChangedHandler?,
          onScrollEnded: OnDragEndedHandler?) {
     
         self.swiftUIContent = content
-        
         self.onScrollChanged = onScrollChanged
         self.onScrollEnded = onScrollEnded
-        
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -79,36 +75,23 @@ class UIGestureOverlayVC: UIViewController {
         swiftUIContent.didMove(toParent: self)
 
         // Add UIGestureRecognizers
-
-        let screenTouch = NSNumber(value: UITouch.TouchType.direct.rawValue)
-        let trackpadTouch = NSNumber(value: UITouch.TouchType.indirectPointer.rawValue)
-
         let trackpadPanGesture = UIPanGestureRecognizer(
             target: self,
-            action: #selector(self.trackpadPanInView))
+            action: #selector(self.scrollGestureHandler))
         trackpadPanGesture.allowedScrollTypesMask = [.continuous, .discrete]
-        // ignore screen; uses trackpad
-//        trackpadPanGesture.allowedTouchTypes = [trackpadTouch]
         self.view.addGestureRecognizer(trackpadPanGesture)
     }
-
-    // also need screen gesture handler for scroll
-    // since you no longer have
-    
-    
-    
-    
     
     // touches = 1 is trackpad click and drag
     // touches = 0 is trackpad panning around graph
     // In the overlay, we're only interested in click-less trackpad panning.
-    @objc func trackpadPanInView(_ gestureRecognizer: UIPanGestureRecognizer) {
+    @objc func scrollGestureHandler(_ gestureRecognizer: UIPanGestureRecognizer) {
         
-        log("UIGestureOverlayVC: trackpadPanInView: gestureRecognizer.numberOfTouches: \(gestureRecognizer.numberOfTouches)")
+        log("CustomListScrollGestureVC: scrollGestureHandler: gestureRecognizer.numberOfTouches: \(gestureRecognizer.numberOfTouches)")
         
         guard let onScrollEnded = onScrollEnded,
               let onScrollChanged = onScrollChanged else {
-                  log("UIGestureOverlayVC: trackpadPanInView: handlers not ready")
+                  log("CustomListScrollGestureVC: scrollGestureHandler: handlers not ready")
             return
         }
         
@@ -118,10 +101,10 @@ class UIGestureOverlayVC: UIViewController {
         if gestureRecognizer.numberOfTouches == 1 {
             switch gestureRecognizer.state {
             case .changed:
-                log("UIGestureOverlayVC: trackpadPanInView: touches=1: .changed")
+                log("CustomListScrollGestureVC: scrollGestureHandler: touches=1: .changed")
                 onScrollChanged(translation.y)
             default:
-                log("UIGestureOverlayVC: default")
+                log("CustomListScrollGestureVC: default")
                 break
             }
         }
@@ -131,27 +114,16 @@ class UIGestureOverlayVC: UIViewController {
         else if gestureRecognizer.numberOfTouches == 0 {
             switch gestureRecognizer.state {
             case .changed:
-                log("UIGestureOverlayVC: trackpadPanInView: touches=0: .changed")
+                log("CustomListScrollGestureVC: scrollGestureHandler: touches=0: .changed")
                 onScrollChanged(translation.y)
             case .ended, .cancelled:
-                log("UIGestureOverlayVC: trackpadPanInView: touches=0: .cancelled or .ended")
+                log("CustomListScrollGestureVC: scrollGestureHandler: touches=0: .cancelled or .ended")
                 onScrollEnded()
             default:
                 break
             }
         } else {
-            log("UIGestureOverlayVC: trackpadPanInView: incorrect number of touches; doing nothing")
+            log("CustomListScrollGestureVC: scrollGestureHandler: incorrect number of touches; doing nothing")
         }
-    }
-}
-
-// Add delegate to allow for simultaneous touches with SwiftUI and other UIKit gestures?
-//
-
-extension UIGestureOverlayVC: UIGestureRecognizerDelegate {
-
-    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
-                           shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-        return true
     }
 }

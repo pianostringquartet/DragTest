@@ -26,7 +26,6 @@ struct CustomListItemGestureRecognizerView: UIViewControllerRepresentable {
     let onItemDragChanged: OnDragChangedHandler
     let onItemDragEnded: OnDragEndedHandler
     
-    // added
     let onScrollChanged: OnDragChangedHandler
     let onScrollEnded: OnDragEndedHandler
     
@@ -44,20 +43,15 @@ struct CustomListItemGestureRecognizerView: UIViewControllerRepresentable {
 }
 
 
-// should also handle screen finger drag
 
 // Handles:
 // - one finger on screen item-swiping
 // - two fingers on trackpad item-swiping
 // - click on trackpad item-dragging
 
-// Handled elsewhere?
-// - one finger long-press-drag item-dragging: SwiftUI .simultaneousGesture
-
-// - two fingers on trackpad list scrolling:
-// ^^ will we have to use the overlaySRV pattern again?
-
-//
+// Handled elsewhere:
+// - one finger long-press-drag item-dragging: see `SwiftUI .simultaneousGesture`
+// - two fingers on trackpad list scrolling
 
 class SwipeGestureRecognizerVC: UIViewController {
     
@@ -231,26 +225,13 @@ class SwipeGestureRecognizerVC: UIViewController {
     
 }
 
+
 // Enables simultaneous gestures with SwiftUI gesture handlers
+// REQUIRED.
 extension SwipeGestureRecognizerVC: UIGestureRecognizerDelegate {
-    
+
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
                            shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
         return true
-    }
-}
-
-func printGestureState(_ state: UIGestureRecognizer.State) {
-    switch state {
-    case .began:
-        log("printGestureState: began")
-    case .changed:
-        log("printGestureState: changed")
-    case .ended:
-        log("printGestureState: ended")
-    case .cancelled:
-        log("printGestureState: cancelled")
-    default:
-        log("printGestureState: default")
     }
 }
