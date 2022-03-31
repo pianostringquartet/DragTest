@@ -14,15 +14,11 @@ let SWIPE_RECT_WIDTH: CGFloat = 1000
 //let SWIPE_RECT_HEIGHT: CGFloat = 500
 
 //let SWIPE_RECT_HEIGHT: CGFloat = 250
-//let SWIPE_RECT_HEIGHT: CGFloat = 100
-let SWIPE_RECT_HEIGHT: CGFloat = 37
+let SWIPE_RECT_HEIGHT: CGFloat = 100
+//let SWIPE_RECT_HEIGHT: CGFloat = 37
 
-//let SWIPE_OPTION_OPACITY = 0.5
-//let SWIPE_OPTION_OPACITY = 0.8
 let SWIPE_OPTION_OPACITY: CGFloat = 1
 
-//let SWIPE_FULL_CORNER_RADIUS: CGFloat = 16
-//let SWIPE_FULL_CORNER_RADIUS: CGFloat = 12
 let SWIPE_FULL_CORNER_RADIUS: CGFloat = 8
 
 
@@ -36,8 +32,6 @@ struct SwipeView: View {
     
     @Binding var activeSwipeId: Int?
     
-    // 30% of view's width
-//    let RESTING_THRESHOLD: CGFloat = SWIPE_RECT_WIDTH / 3
     let RESTING_THRESHOLD: CGFloat = SWIPE_RECT_WIDTH * 0.2
     let RESTING_THRESHOLD_POSITION: CGFloat = SWIPE_RECT_WIDTH * 0.3
     
@@ -53,35 +47,37 @@ struct SwipeView: View {
     @Binding var activeGesture: ActiveGesture
     
     var body: some View {
-        
-        let longPress = LongPressGesture(minimumDuration: 0.5).onEnded { _ in
-            print("longPress onChanged")
-            activeGesture = .dragging(id)
-        }
-        
-        let itemDrag = DragGesture(minimumDistance: 0)
-            .onChanged { value in
-                print("itemDrag onChanged")
-                y = value.translation.height + previousY
-                activeGesture = .dragging(id)
-            }.onEnded { value in
-                print("itemDrag onEnded")
-                previousY = y
-                activeGesture = .none
-            }
 
-        let combined = longPress.sequenced(before: itemDrag)
-        
-        VStack(spacing: 20) {
-//            debugInfo
+        ZStack {
+            debugInfo.offset(y: -110)
             customSwipeItem
         }
-        .offset(y: y)
-                
-        // if we're dragging this child,
-        // then we can't scroll,
-        .simultaneousGesture(combined)
         
+        // Must come BEFORE `y-offset` (height-positioning of item)
+//        .overlay(SwipeGestureRecognizerView(
+//            onItemSwipeChanged: onSwipeChangedGesture,
+//            onItemSwipeEnded: onSwipeEndedGesture))
+        .overlay(SwipeGestureRecognizerView(
+            onItemSwipeChanged: itemSwipeChangedGesture,
+            onItemSwipeEnded: itemSwipeEndedGesture,
+            onItemDragChanged: itemDragChangedGesture,
+            onItemDragEnded: itemDragEndedGesture))
+                
+        // must come AFTER UIKit GestureRecognizer
+//        .gesture(swipeDrag)
+//        .simultaneousGesture(swipeDragGesture)
+        
+//        .simultaneousGesture(swipeDragGesture)
+//        .simultaneousGesture(longPressDragGesture)
+        
+        .offset(y: y)
+
+        // Must come AFTER `y-offset` (height-positioning of item)
+//        .simultaneousGesture(swipeDragGesture)
+        // ^^ handle this in the same UIKit GR as
+        
+        .simultaneousGesture(longPressDragGesture)
+                
         // What's the real animation here?
         .animation(.linear(duration: 0.3), value: x)
         
@@ -107,6 +103,132 @@ struct SwipeView: View {
         }
         
     }
+    
+    
+    var itemDragChangedGesture: OnDragChangedHandler  {
+        return { (translationHeight: CGFloat) in
+            // add this additional check, for when it's being used
+            // not in combination with long-press
+            
+//            if activeGesture.isNone
+            
+            print("itemDragChangedGesture called")
+            y = translationHeight + previousY
+            activeGesture = .dragging(id)
+        }
+    }
+    
+    var itemDragEndedGesture: OnDragEndedHandler  {
+        return {
+            print("itemDragEndedGesture called")
+            previousY = y
+            activeGesture = .none
+        }
+    }
+    
+    
+    var longPressDragGesture: LongPressAndDragGestureType {
+        
+        let longPress = LongPressGesture(minimumDuration: 0.5).onEnded { _ in
+            print("longPress onChanged")
+            activeGesture = .dragging(id)
+        }
+        
+        let itemDrag = DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                print("itemDrag onChanged")
+                itemDragChangedGesture(value.translation.height)
+//                y = value.translation.height + previousY
+//                activeGesture = .dragging(id)
+            }.onEnded { value in
+                print("itemDrag onEnded")
+                itemDragEndedGesture()
+//                previousY = y
+//                activeGesture = .none
+            }
+
+        let combined = longPress.sequenced(before: itemDrag)
+        
+        return combined
+    }
+    
+    var itemSwipeChangedGesture: OnDragChangedHandler {
+        let onSwipeChanged: OnDragChangedHandler = { (translationWidth: CGFloat) in
+            
+            print("itemSwipeChangedGesture called")
+                        
+            // if we have no active gesture,
+            // and we met the swipe threshold,
+            // then we can begin swiping
+            if activeGesture.isNone
+                && translationWidth.magnitude > SWIPE_THRESHOLD {
+                print("itemSwipeChangedGesture: setting us to swipe")
+                
+                activeGesture = .swiping
+            }
+            
+            if activeGesture.isSwipe {
+                print("itemSwipeChangedGesture: updating per swipe")
+                
+                x = previousX - translationWidth
+                
+                // never let us drag the list eastward beyond its frame
+                if x < 0 {
+                    x = 0
+                }
+                
+                activeSwipeId = id
+            }
+        }
+        
+        return onSwipeChanged
+    }
+    
+    var itemSwipeEndedGesture: OnDragEndedHandler {
+        let onSwipeEnded: OnDragEndedHandler = {
+            print("itemSwipeEndedGesture called")
+            
+            // if we had been swiping,
+            // then we resset activeGesture
+            if activeGesture.isSwipe {
+                print("itemSwipeEndedGesture onEnded: resetting swipe")
+                activeGesture = .none
+                
+                if atDefaultActionThreshold {
+                    // Don't need to change x position here,
+                    // since redOption's offset handles that.
+                    
+                    // dispatch default action here, which will cause view to rerender
+                    // without this given rect item
+                    print("TODO: delete item")
+                }
+                else if hasCrossedRestingThreshold {
+                    x = RESTING_THRESHOLD_POSITION
+                }
+                // we didn't pull it out far enough -- set x = 0
+                else {
+                    x = 0
+                }
+                previousX = x
+                activeSwipeId = id
+            } // if active...
+        }
+        return onSwipeEnded
+    }
+    
+    var swipeDragGesture: DragGestureType {
+        
+        let swipeDrag = DragGesture().onChanged { value in
+            //            log("DragGesture: onChanged")
+            itemSwipeChangedGesture(value.translation.width)
+        }.onEnded { value in
+            //            log("DragGesture: onEnded")
+            itemSwipeEndedGesture()
+        }
+        
+        return swipeDrag
+    }
+    
     
     var debugInfo: some View {
         VStack(spacing: 5) {
@@ -145,78 +267,8 @@ struct SwipeView: View {
         x >= RESTING_THRESHOLD
     }
         
-    
-    
     var customSwipeItem: some View {
         
-        let onSwipeChanged: OnSwipeDragChanged = {
-//            (translationWidth: CGFloat) in
-            (translation: CGSize) in
-            print("onSwipeChanged called")
-                        
-            let translationWidth: CGFloat = translation.width
-            
-            // if we have no active gesture,
-            // and we met the swipe threshold,
-            // then we can begin swiping
-            if activeGesture.isNone
-                && translationWidth.magnitude > SWIPE_THRESHOLD {
-                print("onSwipeChanged: setting us to swipe")
-                
-                activeGesture = .swiping
-            }
-            
-            if activeGesture.isSwipe {
-                print("onSwipeChanged: updating per swipe")
-                
-                x = previousX - translationWidth
-                
-                // never let us drag the list eastward beyond its frame
-                if x < 0 {
-                    x = 0
-                }
-                
-                activeSwipeId = id
-            }
-        }
-        
-        let onSwipeEnded: OnSwipeDragEnded = {
-            print("onSwipeEnded called")
-            
-            // if we had been swiping,
-            // then we resset activeGesture
-            if activeGesture.isSwipe {
-                print("onSwipeEnded onEnded: resetting swipe")
-                activeGesture = .none
-                
-                if atDefaultActionThreshold {
-                    // Don't need to change x position here,
-                    // since redOption's offset handles that.
-                                    
-                    // dispatch default action here, which will cause view to rerender
-                    // without this given rect item
-                    print("TODO: delete item")
-                }
-                else if hasCrossedRestingThreshold {
-                    x = RESTING_THRESHOLD_POSITION
-                }
-                // we didn't pull it out far enough -- set x = 0
-                else {
-                    x = 0
-                }
-                previousX = x
-                activeSwipeId = id
-            } // if active...
-        }
-                
-        let swipeDrag = DragGesture().onChanged { value in
-//            log("DragGesture: onChanged")
-            onSwipeChanged(value.translation)
-        }.onEnded { value in
-//            log("DragGesture: onEnded")
-            onSwipeEnded()
-        }
-                
         return ZStack(alignment: .leading) {
             rect
             // size decreases as menu takes up more space
@@ -239,17 +291,23 @@ struct SwipeView: View {
         .frame(height: SWIPE_RECT_HEIGHT, alignment: .leading)
         
         // overlay UIKit GestureRecognizer for 2-finger trackpad panning
+        
 //        .overlay(SwipeGestureRecognizerView(
-//            onDragChanged: onDragChanged,
-//            onDragEnded: onDragEnded))
-                
-        // drag must be on outside, since we can drag
-        // on an open menu;
-        // must come AFTER UIKit GestureRecognizer
-//        .gesture(swipeDrag)
-        .simultaneousGesture(swipeDrag)
+//            onDragChanged: onSwipeChanged,
+//            onDragEnded: onSwipeEnded))
+//
+//        // drag must be on outside, since we can drag
+//        // on an open menu;
+//        // must come AFTER UIKit GestureRecognizer
+////        .gesture(swipeDrag)
+//        .simultaneousGesture(swipeDrag)
         
         // ^^ should this be a simultaneous?
+        
+        // This must be placed here, inside
+//        .overlay(SwipeGestureRecognizerView(
+//            onDragChanged: onSwipeChangedGesture,
+//            onDragEnded: onSwipeEndedGesture))
         
     }
     

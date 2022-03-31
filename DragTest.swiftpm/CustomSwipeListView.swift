@@ -8,6 +8,11 @@
 import Foundation
 import SwiftUI
 
+//typealias LongPressAndDragGesture = SequenceGesture<_EndedGesture<LongPressGesture>, _EndedGesture<_ChangedGesture<DragGesture>>>
+
+typealias LongPressAndDragGestureType = SequenceGesture<_EndedGesture<LongPressGesture>, DragGestureType>
+
+typealias DragGestureType = _EndedGesture<_ChangedGesture<DragGesture>>
 
 enum ActiveGesture: Equatable {
     case scrolling, // scrolling the entire list
@@ -61,10 +66,6 @@ enum ActiveGesture: Equatable {
     }
 }
 
-
-//let SCROLL_THRESHOLD: CGFloat = 8
-//let SWIPE_THRESHOLD: CGFloat = 8
-
 let SCROLL_THRESHOLD: CGFloat = 20
 let SWIPE_THRESHOLD: CGFloat = 20
 
@@ -75,11 +76,9 @@ struct SwipeListView: View {
     // position of list itself; scrolling etc.
     @State var y: CGFloat = 0
     @State var previousY: CGFloat = 0
-    
-    @State var isScrolling = false
-    @State var canScroll = true
+
     @State var isBeingEdited = false
-        
+    
     @State var activeGesture: ActiveGesture = .none
     
     var body: some View {
@@ -118,7 +117,9 @@ struct SwipeListView: View {
                     Text("list previousY: \(previousY)")
                 }
 //                Rectangle().fill(.clear).frame(width: 250)
+                
                 Rectangle().fill(.clear).frame(width: 10)
+                
 //                Text("EDIT MODE?: \(isBeingEdited.description)").onTapGesture {
 //                    isBeingEdited.toggle()
 //                }
@@ -144,50 +145,49 @@ struct SwipeListView: View {
     var listBody: some View {
         listView
             .frame(width: 1050, height: 1200)
-            .offset(y: y - 400)
+//            .offset(y: y - 400)
+            .offset(y: y)
             .contentShape(Rectangle())
             .border(.red)
     }
     
     var listView: some View {
         ZStack {
+            
             SwipeView(id: 1,
                       activeSwipeId: $activeSwipeId,
                       y: 0,
                       previousY: 0,
                       isBeingEdited: isBeingEdited,
                       activeGesture: $activeGesture)
+            
             SwipeView(id: 2,
                       activeSwipeId: $activeSwipeId,
-//                      y: 500,
-//                      previousY: 500,
-                      y: 60,
-                      previousY: 60,
-                      isBeingEdited: isBeingEdited,
-                      activeGesture: $activeGesture)
-            SwipeView(id: 3,
-                      activeSwipeId: $activeSwipeId,
-                      y: 120,
-                      previousY: 120,
-                      isBeingEdited: isBeingEdited,
-                      activeGesture: $activeGesture)
-            SwipeView(id: 4,
-                      activeSwipeId: $activeSwipeId,
-                      y: 180,
-                      previousY: 180,
-                      isBeingEdited: isBeingEdited,
-                      activeGesture: $activeGesture)
-            SwipeView(id: 5,
-                      activeSwipeId: $activeSwipeId,
-                      y: 240,
-                      previousY: 240,
+//                      y: 60,
+//                      previousY: 60,
+                      y: 300,
+                      previousY: 300,
                       isBeingEdited: isBeingEdited,
                       activeGesture: $activeGesture)
             
-            
+//            SwipeView(id: 3,
+//                      activeSwipeId: $activeSwipeId,
+//                      y: 120,
+//                      previousY: 120,
+//                      isBeingEdited: isBeingEdited,
+//                      activeGesture: $activeGesture)
+//            SwipeView(id: 4,
+//                      activeSwipeId: $activeSwipeId,
+//                      y: 180,
+//                      previousY: 180,
+//                      isBeingEdited: isBeingEdited,
+//                      activeGesture: $activeGesture)
+//            SwipeView(id: 5,
+//                      activeSwipeId: $activeSwipeId,
+//                      y: 240,
+//                      previousY: 240,
+//                      isBeingEdited: isBeingEdited,
+//                      activeGesture: $activeGesture)
         }
     }
-    
-    
-    
 }
