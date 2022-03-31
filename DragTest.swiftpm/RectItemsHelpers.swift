@@ -634,12 +634,51 @@ struct OnItemDraggedResult {
     let cursorDrag: CursorDrag
 }
 
+// When dragging: set actively-dragged and dragged-along items' z-indices to be high
+// When drag ended: set all items z-indices = 0
+func updateZIndices(_ items: RectItems,
+                       zIndex: Int) -> RectItems {
+    items.map {
+        var item = $0
+        item.zIndex = zIndex
+        return item
+    }
+}
+
+let CUSTOM_LIST_ITEM_MAX_Z_INDEX = 9999
+let CUSTOM_LIST_ITEM_MIN_Z_INDEX = 0
+
+func updateAllZIndices(items: RectItems,
+                       itemId: ItemId,
+                       draggedAlong: ItemIdSet) -> RectItems {
+    
+    var items = items
+    
+    let updatedItems = updateZIndices(
+        items.filter {
+            ($0.id == itemId) || draggedAlong.contains($0.id)
+        },
+        zIndex: CUSTOM_LIST_ITEM_MAX_Z_INDEX)
+    
+    for updatedItem in updatedItems {
+        items = updateItem(updatedItem, items)
+    }
+    
+    return items
+}
+
 func setItemsInGroupOrTopLevel(item: RectItem,
                                masterList: MasterList,
                                draggedAlong: ItemIdSet,
                                cursorDrag: CursorDrag) -> OnItemDraggedResult {
     
     var masterList = masterList
+    
+    // set all dragged items' z-indices to max
+    masterList.items = updateAllZIndices(
+        items: masterList.items, itemId:
+            item.id, draggedAlong:
+            draggedAlong)
     
     let proposed = proposeGroup(
         item,
@@ -651,6 +690,8 @@ func setItemsInGroupOrTopLevel(item: RectItem,
                                         draggedAlong: draggedAlong)
     
     log("setItemsInGroupOrTopLevel: beingDragged: \(beingDragged)")
+    
+    
     
     
     if let proposed = proposed {
@@ -1527,6 +1568,9 @@ func onDragEnded(_ item: RectItem,
         draggedItem.previousLocation = draggedItem.location
         items = updateItem(draggedItem, items)
     }
+    
+    // reset the z-indices
+    items = updateZIndices(items, zIndex: 0)
     
 //    print("onDragEnded: final items by color: \(items.map(\.color))")
 //    print("onDragEnded: final items by location.x: \(items.map(\.location.x))")
