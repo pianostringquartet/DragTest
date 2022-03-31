@@ -26,15 +26,17 @@ struct CustomListItemGestureRecognizerView: UIViewControllerRepresentable {
     let onItemDragChanged: OnDragChangedHandler
     let onItemDragEnded: OnDragEndedHandler
     
+    // added
+    let onScrollChanged: OnDragChangedHandler
+    let onScrollEnded: OnDragEndedHandler
     
     func makeUIViewController(context: UIViewControllerRepresentableContext<CustomListItemGestureRecognizerView>) -> SwipeGestureRecognizerVC {
-//        SwipeGestureRecognizerVC(onDragChanged: onItemSwipeChanged,
-//                                 onDragEnded: onItemSwipeEnded)
-        
         SwipeGestureRecognizerVC(onItemSwipeChanged: onItemSwipeChanged,
                                  onItemSwipeEnded: onItemSwipeEnded,
                                  onItemDragChanged: onItemDragChanged,
-                                 onItemDragEnded: onItemDragEnded)
+                                 onItemDragEnded: onItemDragEnded,
+                                 onScrollChanged: onScrollChanged,
+                                 onScrollEnded: onScrollEnded)
     }
 
     func updateUIViewController(_ uiView: SwipeGestureRecognizerVC,
@@ -58,9 +60,6 @@ struct CustomListItemGestureRecognizerView: UIViewControllerRepresentable {
 //
 
 class SwipeGestureRecognizerVC: UIViewController {
-
-//    let onDragChanged: OnDragChangedHandler?
-//    let onDragEnded: OnDragEndedHandler?
     
     let onItemSwipeChanged: OnDragChangedHandler?
     let onItemSwipeEnded: OnDragEndedHandler?
@@ -68,21 +67,24 @@ class SwipeGestureRecognizerVC: UIViewController {
     let onItemDragChanged: OnDragChangedHandler?
     let onItemDragEnded: OnDragEndedHandler?
     
-//    init(onDragChanged: OnDragChangedHandler?,
-//         onDragEnded: OnDragEndedHandler?) {
-    
+    let onScrollChanged: OnDragChangedHandler?
+    let onScrollEnded: OnDragEndedHandler?
+        
     init(onItemSwipeChanged: OnDragChangedHandler?,
          onItemSwipeEnded: OnDragEndedHandler?,
          onItemDragChanged: OnDragChangedHandler?,
-         onItemDragEnded: OnDragEndedHandler?) {
-        
-//        self.onDragChanged = onDragChanged
-//        self.onDragEnded = onDragEnded
+         onItemDragEnded: OnDragEndedHandler?,
+         onScrollChanged: OnDragChangedHandler?,
+         onScrollEnded: OnDragEndedHandler?) {
         
         self.onItemSwipeChanged = onItemSwipeChanged
         self.onItemSwipeEnded = onItemSwipeEnded
+        
         self.onItemDragChanged = onItemDragChanged
         self.onItemDragEnded = onItemDragEnded
+        
+        self.onScrollChanged = onScrollChanged
+        self.onScrollEnded = onScrollEnded
         
         super.init(nibName: nil, bundle: nil)
     }
@@ -124,16 +126,14 @@ class SwipeGestureRecognizerVC: UIViewController {
     @objc func screenGestureHandler(_ gestureRecognizer: UIPanGestureRecognizer) {
 
         log("SwipeGestureRecognizerVC: screenGestureHandler: gestureRecognizer.numberOfTouches:  \(gestureRecognizer.numberOfTouches)")
-        
-//        guard let onItemDragChanged = onItemDragChanged,
-//              let onItemDragEnded = onItemDragEnded,
-        
+                
         // for finger on screen, we'll still use long press + drag for item-dragging;
         // so we'll still use a SwiftUI long-press-drag gesture
         // (unless we accidentally trigger both, via trackpad?)
-        
         guard let onItemSwipeChanged = onItemSwipeChanged,
-              let onItemSwipeEnded = onItemSwipeEnded else {
+              let onItemSwipeEnded = onItemSwipeEnded,
+              let onScrollChanged = onScrollChanged,
+              let onScrollEnded = onScrollEnded else {
                   log("SwipeGestureRecognizerVC: screenGestureHandler: handlers not ready")
             return
         }
@@ -143,47 +143,26 @@ class SwipeGestureRecognizerVC: UIViewController {
         // one finger on screen: can be item-drag or item-swipe;
         // since SwiftUI was doing both via simultaneous gestures,
         // just call both handlers here
+        
         if gestureRecognizer.numberOfTouches == 1 {
             switch gestureRecognizer.state {
             case .changed:
                 log("SwipeGestureRecognizerVC: screenGestureHandler: changed")
-//                onItemDragChanged(translation.y)
+                onScrollChanged(translation.y)
                 onItemSwipeChanged(translation.x)
-                
-//                break
-//                if let nodeId = id {
-//                    dispatch(NodeMovedAction(
-//                        id: nodeId,
-//                        translation: translation.toCGSize))
-//                } else {
-//                    dispatch(GraphDraggedAction(
-//                        // not an accurate translation?
-//                        gestureTranslation: translation.toCGSize,
-//                        gestureLocation: location))
-//                }
             default:
                 break // do nothing
             }
         }
 
         // When the finger-on-the-screen gesture is ended or cancelled, touches=0
-        
-        //
-        
         else if gestureRecognizer.numberOfTouches == 0 {
             log("SwipeGestureRecognizerVC: screenGestureHandler: 0 touches ")
             switch gestureRecognizer.state {
             case .ended, .cancelled:
                 log("SwipeGestureRecognizerVC: screenGestureHandler: ended, cancelled")
-//                onItemDragEnded()
+                onScrollEnded()
                 onItemSwipeEnded()
-                
-//              break
-//                if let nodeId = id {
-//                    dispatch(NodeMoveEndedAction(id: nodeId))
-//                } else {
-//                    dispatch(GraphDragEndedAction(location: location))
-//                }
             default:
                 break
             }

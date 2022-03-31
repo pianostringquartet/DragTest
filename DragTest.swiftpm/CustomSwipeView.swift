@@ -25,8 +25,8 @@ let SWIPE_FULL_CORNER_RADIUS: CGFloat = 8
 struct SwipeView: View {
     
     // position of swipe menu
-    @State var x: CGFloat = 0
-    @State var previousX: CGFloat = 0
+    @State var swipeX: CGFloat = 0
+    @State var swipePreviousX: CGFloat = 0
             
     let id: Int
     
@@ -39,12 +39,16 @@ struct SwipeView: View {
     let DEFAULT_ACTION_THRESHOLD: CGFloat = SWIPE_RECT_WIDTH * 0.75
     
     // position of item-view itself
-    @State var y: CGFloat
-    @State var previousY: CGFloat
+    @State var itemY: CGFloat
+    @State var itemPreviousY: CGFloat
         
     let isBeingEdited: Bool
     
     @Binding var activeGesture: ActiveGesture
+    
+    // need to pass these down to item's UIKit GestureHandler
+    let onScrollChanged: OnDragChangedHandler
+    let onScrollEnded: OnDragEndedHandler
     
     var body: some View {
 
@@ -54,24 +58,17 @@ struct SwipeView: View {
         }
         
         // Must come BEFORE `y-offset` (height-positioning of item)
-//        .overlay(SwipeGestureRecognizerView(
-//            onItemSwipeChanged: onSwipeChangedGesture,
-//            onItemSwipeEnded: onSwipeEndedGesture))
-        
-        .overlay(SwipeGestureRecognizerView(
+        .overlay(CustomListItemGestureRecognizerView(
             onItemSwipeChanged: itemSwipeChangedGesture,
             onItemSwipeEnded: itemSwipeEndedGesture,
             onItemDragChanged: itemDragChangedGesture,
-            onItemDragEnded: itemDragEndedGesture))
-                
-        // must come AFTER UIKit GestureRecognizer
-//        .gesture(swipeDrag)
-//        .simultaneousGesture(swipeDragGesture)
-        
-//        .simultaneousGesture(swipeDragGesture)
-//        .simultaneousGesture(longPressDragGesture)
-        
-        .offset(y: y)
+            onItemDragEnded: itemDragEndedGesture,
+            onScrollChanged: onScrollChanged,
+            onScrollEnded: onScrollEnded))
+
+//        .border(.red)
+        .offset(y: itemY)
+//        .border(.green)
 
         // Must come AFTER `y-offset` (height-positioning of item)
 //        .simultaneousGesture(swipeDragGesture)
@@ -80,27 +77,23 @@ struct SwipeView: View {
         .simultaneousGesture(longPressDragGesture)
                 
         // What's the real animation here?
-        .animation(.linear(duration: 0.3), value: x)
+        .animation(.linear(duration: 0.3), value: swipeX)
         
         // if we swiped on another item,
         // reset this item's swipe
         .onChange(of: activeSwipeId) { newValue in
-            x = 0
-            previousX = 0
+            swipeX = 0
+            swipePreviousX = 0
         }
         .onChange(of: activeGesture) { (newValue) in
-            
             switch newValue {
-                // if we start scrolling or dragging,
-                // reset swipe
+            // scrolling or dragging resets swipe-menu
             case .scrolling, .dragging:
-                x = 0
-                previousX = 0
+                swipeX = 0
+                swipePreviousX = 0
             default:
                 return
             }
-            
-            
         }
         
     }
@@ -114,7 +107,7 @@ struct SwipeView: View {
 //            if activeGesture.isNone
             
             print("itemDragChangedGesture called")
-            y = translationHeight + previousY
+            itemY = translationHeight + itemPreviousY
             activeGesture = .dragging(id)
         }
     }
@@ -122,7 +115,7 @@ struct SwipeView: View {
     var itemDragEndedGesture: OnDragEndedHandler  {
         return {
             print("itemDragEndedGesture called")
-            previousY = y
+            itemPreviousY = itemY
             activeGesture = .none
         }
     }
@@ -139,18 +132,12 @@ struct SwipeView: View {
             .onChanged { value in
                 print("itemDrag onChanged")
                 itemDragChangedGesture(value.translation.height)
-//                y = value.translation.height + previousY
-//                activeGesture = .dragging(id)
             }.onEnded { value in
                 print("itemDrag onEnded")
                 itemDragEndedGesture()
-//                previousY = y
-//                activeGesture = .none
             }
 
-        let combined = longPress.sequenced(before: itemDrag)
-        
-        return combined
+        return longPress.sequenced(before: itemDrag)
     }
     
     var itemSwipeChangedGesture: OnDragChangedHandler {
@@ -171,11 +158,11 @@ struct SwipeView: View {
             if activeGesture.isSwipe {
                 print("itemSwipeChangedGesture: updating per swipe")
                 
-                x = previousX - translationWidth
+                swipeX = swipePreviousX - translationWidth
                 
                 // never let us drag the list eastward beyond its frame
-                if x < 0 {
-                    x = 0
+                if swipeX < 0 {
+                    swipeX = 0
                 }
                 
                 activeSwipeId = id
@@ -204,13 +191,13 @@ struct SwipeView: View {
                     print("TODO: delete item")
                 }
                 else if hasCrossedRestingThreshold {
-                    x = RESTING_THRESHOLD_POSITION
+                    swipeX = RESTING_THRESHOLD_POSITION
                 }
                 // we didn't pull it out far enough -- set x = 0
                 else {
-                    x = 0
+                    swipeX = 0
                 }
-                previousX = x
+                swipePreviousX = swipeX
                 activeSwipeId = id
             } // if active...
         }
@@ -230,14 +217,13 @@ struct SwipeView: View {
         return swipeDrag
     }
     
-    
     var debugInfo: some View {
         VStack(spacing: 5) {
             Group {
-                Text("x: \(x)")
-                Text("previousX: \(previousX)")
-                Text("item y: \(y)")
-                Text("item previousY: \(previousY)")
+                Text("x: \(swipeX)")
+                Text("previousX: \(swipePreviousX)")
+                Text("item y: \(itemY)")
+                Text("item previousY: \(itemPreviousY)")
                 
 //                Text("SWIPE_RECT_WIDTH - x: \(SWIPE_RECT_WIDTH - x)")
 //                Text("RESTING_THRESHOLD: \(RESTING_THRESHOLD)")
@@ -261,11 +247,11 @@ struct SwipeView: View {
     }
     
     var atDefaultActionThreshold: Bool {
-        x >= DEFAULT_ACTION_THRESHOLD
+        swipeX >= DEFAULT_ACTION_THRESHOLD
     }
     
     var hasCrossedRestingThreshold: Bool {
-        x >= RESTING_THRESHOLD
+        swipeX >= RESTING_THRESHOLD
     }
         
     var customSwipeItem: some View {
@@ -273,7 +259,7 @@ struct SwipeView: View {
         return ZStack(alignment: .leading) {
             rect
             // size decreases as menu takes up more space
-                .frame(width: SWIPE_RECT_WIDTH - x)
+                .frame(width: SWIPE_RECT_WIDTH - swipeX)
                 .clipShape(RoundedRectangle(cornerRadius: SWIPE_FULL_CORNER_RADIUS))
             
             swipeMenu
@@ -316,13 +302,13 @@ struct SwipeView: View {
         // if we're at default action threshold,
         // or we've not dragged at all,
         // then no padding..
-        if atDefaultActionThreshold || x == 0 {
+        if atDefaultActionThreshold || swipeX == 0 {
             return 0
         }
         // if we've started dragging,
         // then introduce slight padding
-        else if x < 10 {
-            return x
+        else if swipeX < 10 {
+            return swipeX
         }
         // eventually we reach full padding
         return 10
@@ -342,7 +328,7 @@ struct SwipeView: View {
         
         // the space available for the menu,
         // based on how we've dragged
-        let menuSpace: CGFloat = x
+        let menuSpace: CGFloat = swipeX
         
         // space for a single option in the menu,
         // based on available menu space and number of options
@@ -359,7 +345,7 @@ struct SwipeView: View {
                 
         // If we're at the resting position, or moving eastward (closing menu),
         // icon should be centered.
-        if x <= RESTING_THRESHOLD_POSITION {
+        if swipeX <= RESTING_THRESHOLD_POSITION {
             let defaultOptionPadding = (optionSpace / 2) - 10
             // Always have at least some minimum padding;
             if defaultOptionPadding < minimum {
@@ -371,7 +357,7 @@ struct SwipeView: View {
             // As we move away from resting, we don't want to
             // immediately jump from a eg 50% margin to a 10% margin;
             // so we taper it.
-            let diff: CGFloat = RESTING_THRESHOLD_POSITION - x
+            let diff: CGFloat = RESTING_THRESHOLD_POSITION - swipeX
             
             // As diff increases, padding decreases.
             let k = diff * 0.05
