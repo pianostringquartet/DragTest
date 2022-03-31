@@ -57,6 +57,7 @@ struct SwipeView: View {
 //        .overlay(SwipeGestureRecognizerView(
 //            onItemSwipeChanged: onSwipeChangedGesture,
 //            onItemSwipeEnded: onSwipeEndedGesture))
+        
         .overlay(SwipeGestureRecognizerView(
             onItemSwipeChanged: itemSwipeChangedGesture,
             onItemSwipeEnded: itemSwipeEndedGesture,

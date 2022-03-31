@@ -16,7 +16,9 @@ typealias OnDragEndedHandler = () -> ()
 // Gesture Recognizer attached to the Item itself,
 // to detect trackpad 2-finger pans (for swipe)
 // or trackpad click + drag (for immediate item dragging)
-struct SwipeGestureRecognizerView: UIViewControllerRepresentable {
+
+// a gesture recognizer for the item in the custom list itself
+struct CustomListItemGestureRecognizerView: UIViewControllerRepresentable {
 
     let onItemSwipeChanged: OnDragChangedHandler
     let onItemSwipeEnded: OnDragEndedHandler
@@ -25,7 +27,7 @@ struct SwipeGestureRecognizerView: UIViewControllerRepresentable {
     let onItemDragEnded: OnDragEndedHandler
     
     
-    func makeUIViewController(context: UIViewControllerRepresentableContext<SwipeGestureRecognizerView>) -> SwipeGestureRecognizerVC {
+    func makeUIViewController(context: UIViewControllerRepresentableContext<CustomListItemGestureRecognizerView>) -> SwipeGestureRecognizerVC {
 //        SwipeGestureRecognizerVC(onDragChanged: onItemSwipeChanged,
 //                                 onDragEnded: onItemSwipeEnded)
         
@@ -68,6 +70,7 @@ class SwipeGestureRecognizerVC: UIViewController {
     
 //    init(onDragChanged: OnDragChangedHandler?,
 //         onDragEnded: OnDragEndedHandler?) {
+    
     init(onItemSwipeChanged: OnDragChangedHandler?,
          onItemSwipeEnded: OnDragEndedHandler?,
          onItemDragChanged: OnDragChangedHandler?,
@@ -195,10 +198,17 @@ class SwipeGestureRecognizerVC: UIViewController {
         log("SwipeGestureRecognizerVC: trackpadGestureHandler: gestureRecognizer.numberOfTouches:  \(gestureRecognizer.numberOfTouches)")
         
         guard let onItemSwipeChanged = onItemSwipeChanged,
-              let onItemSwipeEnded = onItemSwipeEnded else {
+              let onItemSwipeEnded = onItemSwipeEnded,
+              let onItemDragChanged = onItemDragChanged,
+              let onItemDragEnded = onItemDragEnded else {
                   log("SwipeGestureRecognizerVC: trackpadGestureHandler: handlers not ready")
             return
         }
+        
+        let translation = gestureRecognizer.translation(in: self.view)
+        
+        // when we have clicked+dragged, and then let up our finger,
+        // is that a touches=0 gesture?
         
         // `touches == 0` = running our fingers on trackpad, but no click
         if gestureRecognizer.numberOfTouches == 0 {
@@ -206,11 +216,20 @@ class SwipeGestureRecognizerVC: UIViewController {
             
             case .changed:
                 log("SwipeGestureRecognizerVC: touches 0: trackpadGestureHandler: changed")
-                let translation = gestureRecognizer.translation(in: self.view)
                 onItemSwipeChanged(translation.x)
             case .ended, .cancelled:
                 log("SwipeGestureRecognizerVC: touches 0: trackpadGestureHandler: ended or cancelled")
                 onItemSwipeEnded()
+                
+                // would it be okay to fire this here?
+                // ie if we weren't dragging the item,
+                // then setting previousY = y is a noop;
+                // and if were dragging, then setting activeGesture = .none is okay
+                
+                // ... what if we had been dragging, and we call on-swipe-ended?
+                // ... should be okay, because activeGesture = .drag,
+                // and on-swipe-ended is a noop when aG != .swipe
+                onItemDragEnded()
                 
             default:
                 log("SwipeGestureRecognizerVC: touches 0: trackpadGestureHandler: default")
@@ -223,6 +242,7 @@ class SwipeGestureRecognizerVC: UIViewController {
             switch gestureRecognizer.state {
             case .changed:
                 log("SwipeGestureRecognizerVC: trackpadGestureHandler: changed")
+                onItemDragChanged(translation.y)
             default:
                 log("SwipeGestureRecognizerVC: trackpadGestureHandler: default")
                 break
