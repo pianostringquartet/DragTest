@@ -60,20 +60,21 @@ struct ContentView: View {
         
     var body: some View {
         
-        DragListView()
+        // RectItems dragging list + comparison SwiftUI native list
+//        DragListView()
         
 //        SwipeView(id: 1,
 //                  activeSwipeId: $fakeSwipeId)
 //            .offset(y: -300)
         
-//        SwipeListView().id(id)
-//            .overlay {
-//            Text("RESET").onTapGesture {
-//                id = Int.random(in: 0..<9999)
-//            }
-//            .scaleEffect(1.5)
-//            .offset(x: 400, y: -50)
-//        }
+        SwipeListView().id(id)
+            .overlay {
+            Text("RESET").onTapGesture {
+                id = Int.random(in: 0..<9999)
+            }
+            .scaleEffect(1.5)
+            .offset(x: 400, y: -50)
+        }
         
     }
     
