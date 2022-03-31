@@ -59,6 +59,7 @@ struct ContentView: View {
     @State var id: Int = Int.random(in: 0..<9999)
         
     var body: some View {
+        
         DragListView()
         
 //        SwipeView(id: 1,

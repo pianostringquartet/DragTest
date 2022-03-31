@@ -140,8 +140,11 @@ struct RectItem: Equatable {
     //    let id: Int
     let id: ItemId
     let color: Color
+    
+    // CGPoints
     var location: CGPoint
     var previousLocation: CGPoint
+    
     var children: [RectItem] = []
     var zIndex: Int = 0
     

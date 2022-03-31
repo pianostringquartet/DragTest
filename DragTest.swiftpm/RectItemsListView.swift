@@ -33,6 +33,7 @@ struct DragListView: View {
     
     var body: some View {
         list
+        
 //        nativeList
 //            .frame(width: nativeListWidth)
             .frame(width: 400, height: 900)
@@ -43,7 +44,6 @@ struct DragListView: View {
 
         
         // DISABLED FOR NOW
-         
 //            .offset(x: -200, y: y - 500)
 //            .contentShape(Rectangle())
 //            .border(.red)
@@ -55,7 +55,49 @@ struct DragListView: View {
 //                print("list drag onEnded")
 //                previousY = y
 //            }))
+        
     }
+    
+    var debugHelper: some View {
+        VStack(spacing: 20) {
+            Text("RESET").onTapGesture {
+                masterList = generateData()
+                current = nil
+                proposedGroup = nil
+            }.scaleEffect(1.5)
+            
+            let x = masterList.collapsedGroups.map { $0.id }.description
+            Text("Collapsed: \(x)")
+            
+            
+            
+        }
+        .offset(x: 500)
+        
+    }
+    
+    var list: some View {
+        ZStack {
+            logInView("ContentView: body: masterList.collapsedGroups: \(masterList.collapsedGroups)")
+            debugHelper
+            
+            ForEach(masterList.items, id: \.id.value) { (d: RectItem) in
+                
+                let isClosed = masterList.collapsedGroups.contains(d.id)
+
+                RectView2(item: d,
+                          masterList: $masterList,
+                          current: $current,
+                          proposedGroup: $proposedGroup,
+                          cursorDrag: $cursorDrag,
+                          isClosed: isClosed)
+                    .zIndex(Double(d.zIndex))
+                
+                
+            } // ForEach
+        } // ZStack
+    }
+ 
     
     var nativeList: some View {
         VStack {
@@ -116,44 +158,6 @@ struct DragListView: View {
                 }
             }
         }
-    }
-    
-    var debugHelper: some View {
-        VStack {
-            Text("RESET").onTapGesture {
-                masterList = generateData()
-                current = nil
-                proposedGroup = nil
-            }.scaleEffect(1.5)
-            
-            let x = masterList.collapsedGroups.map { $0.id
-            }.description
-            Text("Collapsed: \(x)")
-        }
-        .offset(x: 500)
-        
-    }
-    
-    var list: some View {
-        ZStack {
-            logInView("ContentView: body: masterList.collapsedGroups: \(masterList.collapsedGroups)")
-            debugHelper
-            
-            ForEach(masterList.items, id: \.id.value) { (d: RectItem) in
-                
-                let isClosed = masterList.collapsedGroups.contains(d.id)
-
-                RectView2(item: d,
-                          masterList: $masterList,
-                          current: $current,
-                          proposedGroup: $proposedGroup,
-                          cursorDrag: $cursorDrag,
-                          isClosed: isClosed)
-                    .zIndex(Double(d.zIndex))
-                
-                
-            } // ForEach
-        } // ZStack
     }
     
 }

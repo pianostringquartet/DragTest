@@ -344,7 +344,9 @@ func hasChildren(_ parentId: ItemId, _ masterList: MasterList) -> Bool {
 
 func getMovedtoIndex(item: RectItem,
                      items: RectItems,
-                     draggedAlong: ItemIdSet) -> Int {
+                     draggedAlong: ItemIdSet,
+                     originalItemIndex: Int,
+                     movingDown: Bool) -> Int {
         
     var maxIndex = items.count - 1
     
@@ -362,29 +364,101 @@ func getMovedtoIndex(item: RectItem,
     let maxY = maxIndex * VIEW_HEIGHT
     
 //    print("getMovedtoIndex: item.color: \(item.color)")
+    
     print("getMovedtoIndex: item: \(item)")
     print("getMovedtoIndex: maxY: \(maxY)")
+    print("getMovedtoIndex: movingDown: \(movingDown)")
     
     // no, needs to be by steps of 100
     // otherwise 0...800 will be 800 numbers
     
-    let range = (0...maxY).reversed().filter { $0.isMultiple(of: VIEW_HEIGHT) }
+//    let range = (0...maxY).reversed().filter { $0.isMultiple(of: VIEW_HEIGHT) }
+    var range = (0...maxY)
+//        .reversed()
+//        .filter { $0.isMultiple(of: VIEW_HEIGHT) }
+        .filter { $0.isMultiple(of: VIEW_HEIGHT / 2) }
+//        .map { $0 + VIEW_HEIGHT/2 } // added
     
-        print("getMovedtoIndex: range: \(range)")
-        print("getMovedtoIndex: item.location.y: \(item.location.y)")
+    range.append(range.last! + VIEW_HEIGHT/2 )
     
+    if movingDown {
+        range = range.reversed()
+    }
+//    range = range.reversed()
+    
+    print("getMovedtoIndex: range: \(range)")
+    print("getMovedtoIndex: item.location.y: \(item.location.y)")
+    
+    // item's current index
+    // at time when first started to move
+//    var originalItemIndex = originalItemIndex
+    
+    // the threshold we have to recede or supersede
+    // to move up or down
+    let originalThreshold = originalItemIndex * VIEW_HEIGHT
+    
+    print("getMovedtoIndex: originalItemIndex: \(originalItemIndex)")
+    print("getMovedtoIndex: originalThreshold: \(originalThreshold)")
+    
+    
+    // try to find the highest threshold we (our item's location.y) satisfy
     for threshold in range {
-        if item.location.y > CGFloat(threshold) {
+    
+        // for moving up, want to find the first threshold we UNDERSHOOT
+        // where range is (0, 50, 150, ..., 250)
+
+        // for moving down, want to find the first treshold we OVERSHOOT
+        // where range is (250, ..., 150, 50, 0)
+        
+
+        
+        let foundThreshold = movingDown ? item.location.y > CGFloat(threshold) : item.location.y < CGFloat(threshold)
+        
+        
+//        if item.location.y > CGFloat(threshold) {
+        if foundThreshold {
+            
             print("getMovedtoIndex: found at threshold: \(threshold)")
+            
+            // still use the threshold, but now eg have to round up or down?
+            
+            // eg we were at 100; now at 49; so we me
+            
             let i = threshold/VIEW_HEIGHT
+
             print("getMovedtoIndex: i: \(i)")
             return i
+            
+            //
+//            if threshold == originalThreshold {
+//                print("getMovedtoIndex: was original threshold")
+//                // so return original indiex
+//                return originalItemIndex
+//            }
+//            else if threshold < originalThreshold {
+//                let x = originalItemIndex - 1
+//                print("getMovedtoIndex: new threshold is lower: \(x)")
+//                // return one index earlier
+//                return x
+//            }
+//            else if threshold > originalThreshold {
+//                let x = originalItemIndex + 1
+//                print("getMovedtoIndex: new threshold is higher: \(x)")
+//                // return one index later
+//                return x
+//            }
+//
+//            let i = threshold/VIEW_HEIGHT
+//
+//            print("getMovedtoIndex: i: \(i)")
+//            return i
+            
         }
     }
     
     // if didn't find anything, return the original index?
     let k = items.firstIndex { $0.id == item.id }!
-        print("getMovedtoIndex: k: \(k)")
+    print("getMovedtoIndex: k: \(k)")
     return k
 }
 
@@ -561,13 +635,11 @@ func maybeMoveIndices(_ items: RectItems,
                       //added
                       maxIndex: Int) -> RectItems {
     
-    log("maybeMoveIndices: indicesMoved: \(indicesMoved)")
-    log("maybeMoveIndices: to: \(to)") // ie calculatedIndex
-    log("maybeMoveIndices: originalIndex: \(originalIndex)")
+//    log("maybeMoveIndices: indicesMoved: \(indicesMoved)")
+//    log("maybeMoveIndices: to: \(to)") // ie calculatedIndex
+//    log("maybeMoveIndices: originalIndex: \(originalIndex)")
     
     var items = items
-    
-    
     
     if to != originalIndex {
         
@@ -620,7 +692,7 @@ func groupFromChildBelow(_ item: RectItem,
                          movedItemChildrenCount: Int,
                          excludedGroups: ExcludedGroups) -> ProposedGroup? {
     
-    log("groupFromChildBelow: item: \(item)")
+//    log("groupFromChildBelow: item: \(item)")
     
     let movedItemIndex = item.itemIndex(items)
     let entireIndex = movedItemIndex + movedItemChildrenCount
@@ -628,38 +700,38 @@ func groupFromChildBelow(_ item: RectItem,
     // must look at the index of the first item BELOW THE ENTIRE BEING-MOVED-ITEM-LIST
     let indexBelow: Int = entireIndex + 1
     
-    log("groupFromChildBelow: movedItemIndex: \(movedItemIndex)")
-    log("groupFromChildBelow: entireIndex: \(entireIndex)")
-    log("groupFromChildBelow: indexBelow: \(indexBelow)")
+//    log("groupFromChildBelow: movedItemIndex: \(movedItemIndex)")
+//    log("groupFromChildBelow: entireIndex: \(entireIndex)")
+//    log("groupFromChildBelow: indexBelow: \(indexBelow)")
     // ^^ when you're dragging along eg
     
     guard let itemBelow = items[safeIndex: indexBelow] else {
-        log("groupFromChildBelow: no itemBelow")
+//        log("groupFromChildBelow: no itemBelow")
         return nil
     }
     
     guard let parentOfItemBelow = itemBelow.parentId else {
-        log("groupFromChildBelow: no parent on itemBelow")
+//        log("groupFromChildBelow: no parent on itemBelow")
         return nil
     }
     
-    log("groupFromChildBelow: itemBelow: \(itemBelow)")
-    log("groupFromChildBelow: itemBelow.parentId: \(itemBelow.parentId)")
-    log("groupFromChildBelow: itemBelow.indentationLevel.value: \(itemBelow.indentationLevel.value)")
-    log("groupFromChildBelow: item.indentationLevel.value: \(item.indentationLevel.value)")
+//    log("groupFromChildBelow: itemBelow: \(itemBelow)")
+//    log("groupFromChildBelow: itemBelow.parentId: \(itemBelow.parentId)")
+//    log("groupFromChildBelow: itemBelow.indentationLevel.value: \(itemBelow.indentationLevel.value)")
+//    log("groupFromChildBelow: item.indentationLevel.value: \(item.indentationLevel.value)")
     
     let itemsAbove = getItemsAbove(item, items)
     
     guard let parentItemAbove = itemsAbove.first(where: { $0.id == parentOfItemBelow }) else {
-        log("groupFromChildBelow: could not find parent above")
+//        log("groupFromChildBelow: could not find parent above")
         return nil
     }
     
     let proposedParent = parentItemAbove.id
     let proposedIndentation = parentItemAbove.indentationLevel.inc().toXLocation
     
-    log("groupFromChildBelow: proposedParent: \(proposedParent)")
-    log("groupFromChildBelow: proposedIndentation: \(proposedIndentation)")
+//    log("groupFromChildBelow: proposedParent: \(proposedParent)")
+//    log("groupFromChildBelow: proposedIndentation: \(proposedIndentation)")
     
     // we'll use the indentation level of the parent + 1
     return ProposedGroup(parentId: proposedParent,
@@ -689,9 +761,9 @@ func findDeepestParent(_ item: RectItem, // the moved-item
     
     var proposed: ProposedGroup? = nil
     
-    log("findDeepestParent: item.id: \(item.id)")
-    log("findDeepestParent: item.location.x: \(item.location.x)")
-    log("findDeepestParent: cursorDrag: \(cursorDrag)")
+//    log("findDeepestParent: item.id: \(item.id)")
+//    log("findDeepestParent: item.location.x: \(item.location.x)")
+//    log("findDeepestParent: cursorDrag: \(cursorDrag)")
     
     let items = masterList.items
     let excludedGroups = masterList.excludedGroups
@@ -700,8 +772,8 @@ func findDeepestParent(_ item: RectItem, // the moved-item
     let itemLocationX = cursorDrag.x
     
     for itemAbove in getItemsAbove(item, items) {
-        log("findDeepestParent: itemAbove.id: \(itemAbove.id)")
-        log("findDeepestParent: itemAbove.location.x: \(itemAbove.location.x)")
+//        log("findDeepestParent: itemAbove.id: \(itemAbove.id)")
+//        log("findDeepestParent: itemAbove.location.x: \(itemAbove.location.x)")
         // ie is this dragged item at, or east of, the above item?
 //        if item.location.x >= itemAbove.location.x {
         
@@ -762,14 +834,14 @@ func findDeepestParent(_ item: RectItem, // the moved-item
                 // ^^^ if item has no parent ie is top level,
                 // then need this indentation to be at least one level
             }
-            log("findDeepestParent: found proposed: \(proposed)")
-            log("findDeepestParent: ... for itemAbove: \(itemAbove.id)")
+//            log("findDeepestParent: found proposed: \(proposed)")
+//            log("findDeepestParent: ... for itemAbove: \(itemAbove.id)")
         } else {
-            log("findDeepestParent: item \(item.id) was not at/east of itemAbove \(itemAbove.id)")
+//            log("findDeepestParent: item \(item.id) was not at/east of itemAbove \(itemAbove.id)")
             
         }
     }
-    log("findDeepestParent: final proposed: \(proposed)")
+//    log("findDeepestParent: final proposed: \(proposed)")
     return proposed
 }
 
@@ -1261,19 +1333,13 @@ func onDragged(_ item: RectItem, // item being actively dragged
     print("onDragged: newIndices: \(newIndices)")
     
 //    let basicMaxIndex = masterList.items.count - 1
-//    print("onDragged: basicMaxIndex was: \(basicMaxIndex)")
-        
-//    let maxIndex = masterList.items.count - 1
-    
+            
     var calculatedIndex = getMovedtoIndex(
         item: item,
         items: masterList.items,
-        draggedAlong: draggedAlong)
-    
-//    var calculatedIndex = getMovedtoIndex(
-//        item: item,
-//        items: masterList.items,
-//        maxIndex: maxIndex)
+        draggedAlong: draggedAlong,
+        originalItemIndex: originalItemIndex,
+        movingDown: translation.height > 0)
     
     let maxIndex = masterList.items.count - 1
     
@@ -1466,8 +1532,6 @@ struct RectView2: View {
             .onTapGesture(perform: {
                 isBeingEdited.toggle()
             })
-        
-        
             .gesture(DragGesture()
                         .onChanged({ value in
                 print("onChanged: \(item.id)")
