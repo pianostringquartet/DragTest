@@ -95,9 +95,7 @@ struct SwipeView: View {
                 return
             }
         }
-        
     }
-    
     
     var itemDragChangedGesture: OnDragChangedHandler  {
         return { (translationHeight: CGFloat) in
@@ -119,7 +117,6 @@ struct SwipeView: View {
             activeGesture = .none
         }
     }
-    
     
     var longPressDragGesture: LongPressAndDragGestureType {
         

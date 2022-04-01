@@ -8,10 +8,7 @@
 import Foundation
 import SwiftUI
 
-//typealias LongPressAndDragGesture = SequenceGesture<_EndedGesture<LongPressGesture>, _EndedGesture<_ChangedGesture<DragGesture>>>
-
 typealias LongPressAndDragGestureType = SequenceGesture<_EndedGesture<LongPressGesture>, DragGestureType>
-
 typealias DragGestureType = _EndedGesture<_ChangedGesture<DragGesture>>
 
 enum ActiveGesture: Equatable {
@@ -200,30 +197,9 @@ struct SwipeListView: View {
         let scrollDrag: DragGestureType = DragGesture()
             .onChanged { value in
                 onScrollChanged(value.translation.height)
-//                print("onScrollChanged")
-//
-//                // if we're not in the middle opf
-//                if activeGesture.isNone
-//                    && value.translation.height.magnitude > SCROLL_THRESHOLD {
-//                    print("onScrollChanged: setting us to scroll")
-//                    activeGesture = .scrolling
-//                }
-//
-//                if activeGesture.isScroll {
-//                    print("onScrollChanged: updating per scroll")
-//                    y = value.translation.height + previousY
-//                }
-//
                 
             }.onEnded { value in
                 onScrollEnded()
-//                print("onScrollEnded")
-//
-//                if activeGesture.isScroll {
-//                    print("onScrollEnded: resetting scroll")
-//                    activeGesture = .none
-//                    previousY = y
-//                }
             }
         return scrollDrag
     }
