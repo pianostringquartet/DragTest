@@ -25,6 +25,8 @@ struct ProposedGroup: Equatable {
     var indentationLevel: IndentationLevel {
         IndentationLevel.fromXLocation(x: xIndentation)
     }
+    
+//    init(_)
 }
 
 struct IndentationLevel: Equatable {
@@ -413,7 +415,7 @@ let sampleColors3: [MyColor] = [
 //    ]),
     MyColor(color: .brown, children: [
         MyColor(color: .cyan),
-//        MyColor(color: .gray),
+        MyColor(color: .gray),
     ]),
     MyColor(color: .green)
 ]
@@ -457,8 +459,8 @@ func generateData() -> MasterList {
 //        sampleColors0
 //        sampleColors1
 //        sampleColors2
-//        sampleColors3
-        sampleColors4
+        sampleColors3
+//        sampleColors4
     )
 }
 

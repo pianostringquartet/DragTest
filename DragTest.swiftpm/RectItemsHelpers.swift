@@ -327,16 +327,16 @@ func hasChildren(_ parentId: ItemId, _ masterList: MasterList) -> Bool {
 
     if let x = masterList.items.first(where: { $0.id == parentId }),
        x.isGroup {
-//        log("hasChildren: true because isGroup")
+        log("hasChildren: true because isGroup")
         return true
     } else if masterList.excludedGroups[parentId].isDefined {
-//        log("hasChildren: true because has entry in excludedGroups")
+        log("hasChildren: true because has entry in excludedGroups")
         return true
     } else if !childrenForParent(parentId: parentId, masterList.items).isEmpty {
-//        log("hasChildren: true because has non-empty children in on-screen items")
+        log("hasChildren: true because has non-empty children in on-screen items")
         return true
     } else {
-//        log("hasChildren: false....")
+        log("hasChildren: false....")
         return false
     }
 }
@@ -918,14 +918,25 @@ func findDeepestParent(_ item: RectItem, // the moved-item
             // then we want to put our being-dragged-item into that itemAbove's child list;
             // and NOT use that itemAbove's own parent as our group
             if itemAboveHasChildren,
-               !excludedGroups[itemAbove.id].isDefined {
+               !excludedGroups[itemAbove.id].isDefined,
+            
+                // added:
+               itemAbove.isGroup
+            {
                 log("found itemAbove that has children; will make being-dragged-item")
                 
                 // make sure it's not a closed group that we're proposing!
                 
+                // make sure the itemAbove is also a group!
+//                if itemAbove.isGroup {
+                    proposed = ProposedGroup(parentId: itemAbove.id,
+                                             xIndentation: itemAbove.indentationLevel.inc().toXLocation)
+//                }
                 
-                proposed = ProposedGroup(parentId: itemAbove.id,
-                                         xIndentation: itemAbove.indentationLevel.inc().toXLocation)
+                // there's a
+                
+//                proposed = ProposedGroup(parentId: itemAbove.id,
+//                                         xIndentation: itemAbove.indentationLevel.inc().toXLocation)
             }
             
             // this can't quite be right --
@@ -935,6 +946,7 @@ func findDeepestParent(_ item: RectItem, // the moved-item
             else if let itemAboveParentId = itemAbove.parentId,
                     !excludedGroups[itemAboveParentId].isDefined {
                 log("found itemAbove that is part of a group whose parent id is: \(itemAbove.parentId)")
+                
                 proposed = ProposedGroup(
                     parentId: itemAboveParentId,
                     xIndentation: itemAbove.location.x)
@@ -944,14 +956,20 @@ func findDeepestParent(_ item: RectItem, // the moved-item
             // if the item above is NOT itself part of a group,
             // we'll just use the item above now as its parent
 //            else {
-            else if !excludedGroups[itemAbove.id].isDefined {
+            else if !excludedGroups[itemAbove.id].isDefined,
+                    itemAbove.isGroup {
                 log("found itemAbove without parent")
-                
                 
                 proposed = ProposedGroup(
                     parentId: itemAbove.id,
                     //                    xIndentation: itemAbove.location.x)
                     xIndentation: IndentationLevel(1).toXLocation)
+                
+                
+//                proposed = ProposedGroup(
+//                    parentId: itemAbove.id,
+//                    //                    xIndentation: itemAbove.location.x)
+//                    xIndentation: IndentationLevel(1).toXLocation)
                 // ^^^ if item has no parent ie is top level,
                 // then need this indentation to be at least one level
             }
@@ -963,6 +981,7 @@ func findDeepestParent(_ item: RectItem, // the moved-item
         }
     }
 //    log("findDeepestParent: final proposed: \(proposed)")
+    
     return proposed
 }
 
