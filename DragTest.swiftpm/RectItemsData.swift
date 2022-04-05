@@ -380,7 +380,7 @@ let sampleColors1: [MyColor] = [
 let sampleColors2: [MyColor] = [
     MyColor(color: .red),
     MyColor(color: .blue, children: [
-        MyColor(color: .black),
+//        MyColor(color: .black),
         MyColor(color: .brown, children: [
             MyColor(color: .cyan),
             //            MyColor(color: .purple),
@@ -474,9 +474,9 @@ func generateData() -> MasterList {
     MasterList.fromColors(
 //        sampleColors0
 //        sampleColors1
-//        sampleColors2
+        sampleColors2
 //        sampleColors3
-        sampleColors4
+//        sampleColors4
     )
 }
 

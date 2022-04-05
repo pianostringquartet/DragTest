@@ -759,14 +759,17 @@ func calculateNewIndexOnDrag(item: RectItem,
     return calculatedIndex
 }
 
-func maybeMoveIndices(_ items: RectItems,
+
+func maybeMoveIndices(originalItemId: ItemId,
+                      _ items: RectItems,
                       indicesMoved: [Int],
                       to: Int,
                       originalIndex: Int) -> RectItems {
     
-//    log("maybeMoveIndices: indicesMoved: \(indicesMoved)")
-//    log("maybeMoveIndices: to: \(to)") // ie calculatedIndex
-//    log("maybeMoveIndices: originalIndex: \(originalIndex)")
+    log("maybeMoveIndices: originalItemId: \(originalItemId)")
+    log("maybeMoveIndices: indicesMoved: \(indicesMoved)")
+    log("maybeMoveIndices: to: \(to)") // ie calculatedIndex
+    log("maybeMoveIndices: originalIndex: \(originalIndex)")
     
     var items = items
     
@@ -779,8 +782,8 @@ func maybeMoveIndices(_ items: RectItems,
          toOffset: to > from ? to + 1 : to)
          */
         
-//        log("maybeMoveIndices: items by id BEFORE move: \(items.map(\.id))")
-//        log("maybeMoveIndices: items by color BEFORE move: \(items.map(\.color))")
+        log("maybeMoveIndices: items by id BEFORE move: \(items.map(\.id))")
+        log("maybeMoveIndices: items by color BEFORE move: \(items.map(\.color))")
         
         let finalOffset = to > originalIndex ? to + 1 : to
         
@@ -789,14 +792,16 @@ func maybeMoveIndices(_ items: RectItems,
         items.move(fromOffsets: IndexSet(indicesMoved),
                    toOffset: finalOffset)
         
-//        log("maybeMoveIndices: items by id AFTER move: \(items.map(\.id))")
+        log("maybeMoveIndices: items by id AFTER move: \(items.map(\.id))")
         
-//        log("maybeMoveIndices: items by color AFTER move: \(items.map(\.color))")
+        log("maybeMoveIndices: items by color AFTER move: \(items.map(\.color))")
         
-        items = setYPositionByIndices(items,
-                                      isDragEnded: false)
+        items = setYPositionByIndices(
+            originalItemId: originalItemId,
+            items,
+            isDragEnded: false)
         
-//        log("maybeMoveIndices: item ids after position reset by indices: \(items.map(\.id))")
+        log("maybeMoveIndices: item ids after position reset by indices: \(items.map(\.id))")
         
         return items
     } else {
@@ -1335,33 +1340,57 @@ func updatePosition(translation: CGSize,
 // ie we've just REORDERED `items`,
 // and now want to set their heights according to the REORDERED items;
 // hence why we use `.enumerated`'s offsets, and not
-func setYPositionByIndices(_ items: RectItems,
+func setYPositionByIndices(originalItemId: ItemId,
+                           _ items: RectItems,
                            isDragEnded: Bool = false,
                            _ viewHeight: Int = 100) -> RectItems {
     
-//    log("will adjust positions of items (by id): \(items.map(\.id))")
+    log("will adjust positions of items (by id): \(items.map(\.id))")
     
     return items.enumerated().map { (offset, item) in
         // need to keep the level of nesting, which never changes when reseting positions
-        //        let newLocation = CGPoint(x: 0,
         var item = item
         let newY = CGFloat(offset * viewHeight)
         
-//        print("setYPositionByIndices: item id: \(item.id)")
-//        print("setYPositionByIndices: newY: \(newY)")
+        print("setYPositionByIndices: item id: \(item.id)")
+        print("setYPositionByIndices: newY: \(newY)")
         
-        // Setting position by indices NEVER changes x location
-        let newLocation = CGPoint(x: item.location.x,
-                                  y: newY)
-        item.location = newLocation
-        
-        // ONLY SET `previousLocation.y` HERE
-        if isDragEnded {
-//            print("setYPositionByIndices: drag ended, so resetting previous position")
-//            item.previousLocation = newLocation
-            item.previousLocation.y = newLocation.y
+        if !isDragEnded && item.id == originalItemId {
+            print("setYPositionByIndices: will not change originalItemId \(originalItemId)'s y-position until drag-is-ended")
+            return item
         }
-        return item
+        else {
+            // Setting position by indices NEVER changes x location
+            let newLocation = CGPoint(x: item.location.x,
+                                      y: newY)
+            item.location = newLocation
+            
+            // better:
+//            item.location.y = newY
+            
+            
+            // ONLY SET `previousLocation.y` HERE
+            if isDragEnded {
+    //            print("setYPositionByIndices: drag ended, so resetting previous position")
+    //            item.previousLocation = newLocation
+                item.previousLocation.y = newLocation.y
+            }
+            return item
+        }
+        
+        
+//        // Setting position by indices NEVER changes x location
+//        let newLocation = CGPoint(x: item.location.x,
+//                                  y: newY)
+//        item.location = newLocation
+//
+//        // ONLY SET `previousLocation.y` HERE
+//        if isDragEnded {
+////            print("setYPositionByIndices: drag ended, so resetting previous position")
+////            item.previousLocation = newLocation
+//            item.previousLocation.y = newLocation.y
+//        }
+//        return item
     }
 }
 
@@ -1537,6 +1566,7 @@ func onDragged(_ item: RectItem, // item being actively dragged
         movedIndices: newIndices)
         
     masterList.items = maybeMoveIndices(
+        originalItemId: item.id,
         masterList.items,
         indicesMoved: newIndices,
         to: calculatedIndex,
@@ -1564,7 +1594,10 @@ func onDragEnded(_ item: RectItem,
     
     // finalizes items' positions by index;
     // also updates itemns' previousPositions.
-    items = setYPositionByIndices(items, isDragEnded: true)
+    items = setYPositionByIndices(
+        originalItemId: item.id,
+        items,
+        isDragEnded: true)
 //    print("onDragEnded: updated items: \(items)")
     
     let allDragged: ItemIds = [item.id] + Array(draggedAlong)
