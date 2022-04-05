@@ -327,16 +327,16 @@ func hasChildren(_ parentId: ItemId, _ masterList: MasterList) -> Bool {
 
     if let x = masterList.items.first(where: { $0.id == parentId }),
        x.isGroup {
-        log("hasChildren: true because isGroup")
+//        log("hasChildren: true because isGroup")
         return true
     } else if masterList.excludedGroups[parentId].isDefined {
-        log("hasChildren: true because has entry in excludedGroups")
+//        log("hasChildren: true because has entry in excludedGroups")
         return true
     } else if !childrenForParent(parentId: parentId, masterList.items).isEmpty {
-        log("hasChildren: true because has non-empty children in on-screen items")
+//        log("hasChildren: true because has non-empty children in on-screen items")
         return true
     } else {
-        log("hasChildren: false....")
+//        log("hasChildren: false....")
         return false
     }
 }
@@ -1098,6 +1098,7 @@ func moveItemIntoGroup(_ item: RectItem,
 //    item.previousLocation = item.location
     // ^ ?: DON'T DO THIS, now that you're running this is onDrag instead of onDragEnded
     log("moveItemIntoGroup: proposedGroup: \(proposedGroup)")
+    log("moveItemIntoGroup: draggedAlong: \(draggedAlong)")
     
     log("moveItemIntoGroup: item.location.x: \(item.location.x)")
     items = updateItem(item, items)
@@ -1144,8 +1145,60 @@ func moveItemToTopLevel(_ item: RectItem,
     
 }
 
-
 func maybeSnapDescendants(_ item: RectItem,
+                          _ items: RectItems,
+                          draggedAlong: ItemIdSet,
+                          // the indentation level from the proposed group
+                          // (if top level then = 0)
+                          startingIndentationLevel: IndentationLevel) -> RectItems {
+    
+//    log("maybeSnapDescendants: item at start: \(item)")
+    
+//    let descendants = getDescendants(item, items)
+    let descendants = items.filter { draggedAlong.contains($0.id) }
+    log("maybeSnapDescendants: draggedAlong by id: \(draggedAlong.map(\.id))")
+    log("maybeSnapDescendants: descendants by id: \(descendants.map(\.id))")
+    
+    if descendants.isEmpty {
+        log("maybeSnapDescendants: no children for this now-top-level item \(item.id); exiting early")
+        return items
+    }
+    
+    log("maybeSnapDescendants: startingIndentationLevel: \(startingIndentationLevel)")
+    log("maybeSnapDescendants: item.indentationLevel.value: \(item.indentationLevel.value)")
+    
+    let indentDiff: Int = startingIndentationLevel.value - item.indentationLevel.value
+    log("maybeSnapDescendants: indentDiff: \(indentDiff)")
+    
+    var items = items
+    
+    
+    for child in descendants {
+        
+        log("on child: \(child.id)")
+        
+        var child = child
+        log("maybeSnapDescendants: child location BEFORE setXLocationByIndentation: \(child.location.x)")
+        
+        let childExistingIndent = child.indentationLevel.value
+        log("maybeSnapDescendants: childExistingIndent: \(childExistingIndent)")
+        let newIndent = childExistingIndent + indentDiff
+        log("maybeSnapDescendants: newIndent: \(newIndent)")
+        
+        let finalChildIndent = IndentationLevel(newIndent)
+        log("maybeSnapDescendants: finalChildIndent: \(finalChildIndent)")
+    
+        child = setXLocationByIndentation(child, finalChildIndent)
+        
+        log("maybeSnapDescendants: child location after setXLocationByIndentation: \(child.location.x)")
+        items = updateItem(child, items)
+    }
+    
+    return items
+}
+
+
+func _maybeSnapDescendants(_ item: RectItem,
                           _ items: RectItems,
                           draggedAlong: ItemIdSet,
                           startingIndentationLevel: IndentationLevel) -> RectItems {
@@ -1154,11 +1207,11 @@ func maybeSnapDescendants(_ item: RectItem,
     
 //    let descendants = getDescendants(item, items)
     let descendants = items.filter { draggedAlong.contains($0.id) }
-//    log("maybeSnapDescendants: draggedAlong by id: \(draggedAlong.map(\.id))")
-//    log("maybeSnapDescendants: descendants by id: \(descendants.map(\.id))")
+    log("_maybeSnapDescendants: draggedAlong by id: \(draggedAlong.map(\.id))")
+    log("_maybeSnapDescendants: descendants by id: \(descendants.map(\.id))")
     
     if descendants.isEmpty {
-//        log("maybeSnapDescendants: no children for this now-top-level item \(item.id); exiting early")
+        log("_maybeSnapDescendants: no children for this now-top-level item \(item.id); exiting early")
         return items
     }
     
@@ -1179,18 +1232,18 @@ func maybeSnapDescendants(_ item: RectItem,
     var indentationLevel = startingIndentationLevel.inc()
     var currentParentId = item.id
     
-//    log("maybeSnapDescendants: indentationLevel at start: \(indentationLevel)")
-//    log("maybeSnapDescendants: currentParentId at start: \(currentParentId)")
+//    log("_maybeSnapDescendants: indentationLevel at start: \(indentationLevel)")
+//    log("_maybeSnapDescendants: currentParentId at start: \(currentParentId)")
     
     for child in descendants {
         
-//        log("maybeSnapDescendants: on child: \(child.id), \(child.color), \(child.location.x), parentId: \(child.parentId)")
+        log("_maybeSnapDescendants: on child: \(child.id), \(child.color), \(child.location.x), parentId: \(child.parentId)")
         
-//        log("maybeSnapDescendants: CURRENT: indentationLevel: \(indentationLevel)")
-//        log("maybeSnapDescendants: CURRENT: indentationLevel.toXLocation: \(indentationLevel.toXLocation)")
-//        log("maybeSnapDescendants: CURRENT: currentParentId: \(currentParentId)")
+        log("_maybeSnapDescendants: CURRENT: indentationLevel: \(indentationLevel)")
+        log("_maybeSnapDescendants: CURRENT: indentationLevel.toXLocation: \(indentationLevel.toXLocation)")
+        log("_maybeSnapDescendants: CURRENT: currentParentId: \(currentParentId)")
         
-//        log("maybeSnapDescendants: on child: \(child)")
+//        log("_maybeSnapDescendants: on child: \(child)")
         // if we've changed parent ids, then we're on a new nesting level
         // ... but maybe not correct when eg
         if let childParentId = child.parentId,
@@ -1205,7 +1258,7 @@ func maybeSnapDescendants(_ item: RectItem,
             // compare against child's indentation level,
             // which is not changed until the very end of onDragEnded
             if child.indentationLevel.value > indentationLevel.value {
-//                log("maybeSnapDescendants: child was east")
+                log("_maybeSnapDescendants: child was east")
                 indentationLevel = indentationLevel.inc()
             }
             
@@ -1213,17 +1266,19 @@ func maybeSnapDescendants(_ item: RectItem,
             // so we backed out a level
 //            else if child.location.x < indentationLevel.toXLocation {
             else if child.indentationLevel.value < indentationLevel.value {
-//                log("maybeSnapDescendants: child was west")
+                log("_maybeSnapDescendants: child was west")
                 indentationLevel = indentationLevel.dec()
             } else {
-//                log("maybeSnapDescendants: child was aligned")
+                log("_maybeSnapDescendants: child was aligned")
             }
+        } else {
+            log("will not attempt indentation adjustment for child \(child.id)")
         }
         
         var child = child
-//        log("maybeSnapDescendants: child location BEFORE setXLocationByIndentation: \(child.location.x)")
+        log("_maybeSnapDescendants: child location BEFORE setXLocationByIndentation: \(child.location.x)")
         child = setXLocationByIndentation(child, indentationLevel)
-//        log("maybeSnapDescendants: child location after setXLocationByIndentation: \(child.location.x)")
+        log("_maybeSnapDescendants: child location after setXLocationByIndentation: \(child.location.x)")
         items = updateItem(child, items)
     }
     

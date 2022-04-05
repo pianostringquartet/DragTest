@@ -25,8 +25,6 @@ struct ProposedGroup: Equatable {
     var indentationLevel: IndentationLevel {
         IndentationLevel.fromXLocation(x: xIndentation)
     }
-    
-//    init(_)
 }
 
 struct IndentationLevel: Equatable {
@@ -423,44 +421,62 @@ let sampleColors3: [MyColor] = [
 //let sampleColors4: [MyColor] = [
 //    MyColor(color: .red),
 //    MyColor(color: .blue, children: [
-//        MyColor(color: .black),
+////        MyColor(color: .black),
 //        MyColor(color: .brown, children: [
-//            MyColor(color: .cyan),
+////            MyColor(color: .cyan),
 //            MyColor(color: .purple)
 //
 //        ]),
 //        MyColor(color: .indigo, children: [
-//            MyColor(color: .orange),
+////            MyColor(color: .orange),
 //            MyColor(color: .gray),
+//        ]),
+//    ]),
+//    MyColor(color: .green),
+////    MyColor(color: .yellow)
+//]
+
+// repros a bug on main app...
+let sampleColors4: [MyColor] = [
+    MyColor(color: .red),
+    MyColor(color: .black, children: [
+        MyColor(color: .cyan),
+    ]),
+    MyColor(color: .blue, children: [
+        MyColor(color: .brown, children: [
+            MyColor(color: .purple)
+        ]),
+        MyColor(color: .indigo, children: [
+            MyColor(color: .gray),
+        ]),
+    ]),
+    MyColor(color: .green),
+]
+
+
+//let sampleColors4: [MyColor] = [
+//    MyColor(color: .red),
+//    MyColor(color: .blue, children: [
+//
+//        MyColor(color: .black),
+//        MyColor(color: .indigo),
+//
+//        MyColor(color: .brown, children: [
+//            MyColor(color: .cyan),
+//            MyColor(color: .orange),
 //        ]),
 //    ]),
 //    MyColor(color: .green),
 //    MyColor(color: .yellow)
 //]
 
-let sampleColors4: [MyColor] = [
-    MyColor(color: .red),
-    MyColor(color: .blue, children: [
-
-        MyColor(color: .black),
-        MyColor(color: .indigo),
-
-        MyColor(color: .brown, children: [
-            MyColor(color: .cyan),
-            MyColor(color: .orange),
-        ]),
-    ]),
-    MyColor(color: .green),
-    MyColor(color: .yellow)
-]
-
 func generateData() -> MasterList {
     MasterList.fromColors(
 //        sampleColors0
 //        sampleColors1
 //        sampleColors2
-        sampleColors3
-//        sampleColors4
+//        sampleColors3
+        sampleColors4
     )
 }
 
