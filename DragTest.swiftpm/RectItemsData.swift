@@ -439,9 +439,9 @@ let sampleColors3: [MyColor] = [
 // repros a bug on main app...
 let sampleColors4: [MyColor] = [
     MyColor(color: .red),
-    MyColor(color: .black, children: [
-        MyColor(color: .cyan),
-    ]),
+//    MyColor(color: .black, children: [
+//        MyColor(color: .cyan),
+//    ]),
     MyColor(color: .blue, children: [
         MyColor(color: .brown, children: [
             MyColor(color: .purple)
@@ -474,9 +474,9 @@ func generateData() -> MasterList {
     MasterList.fromColors(
 //        sampleColors0
 //        sampleColors1
-        sampleColors2
+//        sampleColors2
 //        sampleColors3
-//        sampleColors4
+        sampleColors4
     )
 }
 

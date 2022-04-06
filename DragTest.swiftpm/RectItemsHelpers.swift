@@ -856,8 +856,8 @@ func groupFromChildBelow(_ item: RectItem,
     let proposedParent = parentItemAbove.id
     let proposedIndentation = parentItemAbove.indentationLevel.inc().toXLocation
     
-//    log("groupFromChildBelow: proposedParent: \(proposedParent)")
-//    log("groupFromChildBelow: proposedIndentation: \(proposedIndentation)")
+    log("groupFromChildBelow: proposedParent: \(proposedParent)")
+    log("groupFromChildBelow: proposedIndentation: \(proposedIndentation)")
     
     // we'll use the indentation level of the parent + 1
     return ProposedGroup(parentId: proposedParent,
@@ -893,55 +893,31 @@ func findDeepestParent(_ item: RectItem, // the moved-item
     
     let items = masterList.items
     let excludedGroups = masterList.excludedGroups
-    
-//    let itemLocationX = item.location.x
     let itemLocationX = cursorDrag.x
     
     for itemAbove in getItemsAbove(item, items) {
 //        log("findDeepestParent: itemAbove.id: \(itemAbove.id)")
 //        log("findDeepestParent: itemAbove.location.x: \(itemAbove.location.x)")
-        // ie is this dragged item at, or east of, the above item?
-//        if item.location.x >= itemAbove.location.x {
         
-//        if item.location.x > itemAbove.location.x {
+        // ie is this dragged item at, or east of, the above item?
         if itemLocationX > itemAbove.location.x {
             // ^^ has to be >, not >=, because = is top level in some cases?
             
-        
-            // ie only interested in items that are part of a group;
-            // otherwise we're just talking about a top level placement
-            //           itemAbove.parentId.isDefined {
-            // ^^ no longer true, since we're cjecking for top level item elsewhere?
-            
-            // if the item above is itself part of a group,
-            // we'll
-            
             let itemAboveHasChildren = hasChildren(itemAbove.id, masterList)
-            let itemAboveHasParent = itemAbove.parentId.isDefined
             
             // if the itemAbove us itself a parent,
             // then we want to put our being-dragged-item into that itemAbove's child list;
             // and NOT use that itemAbove's own parent as our group
             if itemAboveHasChildren,
+               // make sure it's not a closed group that we're proposing!
                !excludedGroups[itemAbove.id].isDefined,
-            
-                // added:
+               // make sure the itemAbove is also a group!
                itemAbove.isGroup
             {
-                log("found itemAbove that has children; will make being-dragged-item")
+//                log("found itemAbove that has children; will make being-dragged-item")
                 
-                // make sure it's not a closed group that we're proposing!
-                
-                // make sure the itemAbove is also a group!
-//                if itemAbove.isGroup {
                     proposed = ProposedGroup(parentId: itemAbove.id,
                                              xIndentation: itemAbove.indentationLevel.inc().toXLocation)
-//                }
-                
-                // there's a
-                
-//                proposed = ProposedGroup(parentId: itemAbove.id,
-//                                         xIndentation: itemAbove.indentationLevel.inc().toXLocation)
             }
             
             // this can't quite be right --
@@ -950,31 +926,20 @@ func findDeepestParent(_ item: RectItem, // the moved-item
             
             else if let itemAboveParentId = itemAbove.parentId,
                     !excludedGroups[itemAboveParentId].isDefined {
-                log("found itemAbove that is part of a group whose parent id is: \(itemAbove.parentId)")
-                
+//                log("found itemAbove that is part of a group whose parent id is: \(itemAbove.parentId)")
                 proposed = ProposedGroup(
                     parentId: itemAboveParentId,
                     xIndentation: itemAbove.location.x)
             }
-            
 
             // if the item above is NOT itself part of a group,
             // we'll just use the item above now as its parent
-//            else {
             else if !excludedGroups[itemAbove.id].isDefined,
                     itemAbove.isGroup {
-                log("found itemAbove without parent")
-                
+//                log("found itemAbove without parent")
                 proposed = ProposedGroup(
                     parentId: itemAbove.id,
-                    //                    xIndentation: itemAbove.location.x)
                     xIndentation: IndentationLevel(1).toXLocation)
-                
-                
-//                proposed = ProposedGroup(
-//                    parentId: itemAbove.id,
-//                    //                    xIndentation: itemAbove.location.x)
-//                    xIndentation: IndentationLevel(1).toXLocation)
                 // ^^^ if item has no parent ie is top level,
                 // then need this indentation to be at least one level
             }
@@ -1069,7 +1034,15 @@ func proposeGroup(_ item: RectItem, // the moved-item
                                                       excludedGroups: masterList.excludedGroups) {
         
         log("found group \(groupDueToChildBelow.parentId) from child below")
-        proposed = groupDueToChildBelow
+        
+        // if our drag is east of the proposed-from-below's indentation level,
+        // and we already found a proposed group from 'deepest parent',
+        // then don't use proposed-from-below.
+        let keepProposed = (groupDueToChildBelow.indentationLevel.toXLocation < cursorDrag.x) && proposed.isDefined
+        
+        if !keepProposed {
+            proposed = groupDueToChildBelow
+        }
     }
     
     log("proposeGroup: returning: \(proposed)")
@@ -1161,19 +1134,19 @@ func maybeSnapDescendants(_ item: RectItem,
     
 //    let descendants = getDescendants(item, items)
     let descendants = items.filter { draggedAlong.contains($0.id) }
-    log("maybeSnapDescendants: draggedAlong by id: \(draggedAlong.map(\.id))")
-    log("maybeSnapDescendants: descendants by id: \(descendants.map(\.id))")
+//    log("maybeSnapDescendants: draggedAlong by id: \(draggedAlong.map(\.id))")
+//    log("maybeSnapDescendants: descendants by id: \(descendants.map(\.id))")
     
     if descendants.isEmpty {
-        log("maybeSnapDescendants: no children for this now-top-level item \(item.id); exiting early")
+//        log("maybeSnapDescendants: no children for this now-top-level item \(item.id); exiting early")
         return items
     }
     
-    log("maybeSnapDescendants: startingIndentationLevel: \(startingIndentationLevel)")
-    log("maybeSnapDescendants: item.indentationLevel.value: \(item.indentationLevel.value)")
+//    log("maybeSnapDescendants: startingIndentationLevel: \(startingIndentationLevel)")
+//    log("maybeSnapDescendants: item.indentationLevel.value: \(item.indentationLevel.value)")
     
     let indentDiff: Int = startingIndentationLevel.value - item.indentationLevel.value
-    log("maybeSnapDescendants: indentDiff: \(indentDiff)")
+//    log("maybeSnapDescendants: indentDiff: \(indentDiff)")
     
     var items = items
     
@@ -1183,113 +1156,24 @@ func maybeSnapDescendants(_ item: RectItem,
         log("on child: \(child.id)")
         
         var child = child
-        log("maybeSnapDescendants: child location BEFORE setXLocationByIndentation: \(child.location.x)")
+//        log("maybeSnapDescendants: child location BEFORE setXLocationByIndentation: \(child.location.x)")
         
         let childExistingIndent = child.indentationLevel.value
-        log("maybeSnapDescendants: childExistingIndent: \(childExistingIndent)")
+//        log("maybeSnapDescendants: childExistingIndent: \(childExistingIndent)")
         let newIndent = childExistingIndent + indentDiff
-        log("maybeSnapDescendants: newIndent: \(newIndent)")
+//        log("maybeSnapDescendants: newIndent: \(newIndent)")
         
         let finalChildIndent = IndentationLevel(newIndent)
-        log("maybeSnapDescendants: finalChildIndent: \(finalChildIndent)")
+//        log("maybeSnapDescendants: finalChildIndent: \(finalChildIndent)")
     
         child = setXLocationByIndentation(child, finalChildIndent)
         
-        log("maybeSnapDescendants: child location after setXLocationByIndentation: \(child.location.x)")
+//        log("maybeSnapDescendants: child location after setXLocationByIndentation: \(child.location.x)")
         items = updateItem(child, items)
     }
     
     return items
 }
-
-
-func _maybeSnapDescendants(_ item: RectItem,
-                          _ items: RectItems,
-                          draggedAlong: ItemIdSet,
-                          startingIndentationLevel: IndentationLevel) -> RectItems {
-    
-//    log("maybeSnapDescendants: item at start: \(item)")
-    
-//    let descendants = getDescendants(item, items)
-    let descendants = items.filter { draggedAlong.contains($0.id) }
-    log("_maybeSnapDescendants: draggedAlong by id: \(draggedAlong.map(\.id))")
-    log("_maybeSnapDescendants: descendants by id: \(descendants.map(\.id))")
-    
-    if descendants.isEmpty {
-        log("_maybeSnapDescendants: no children for this now-top-level item \(item.id); exiting early")
-        return items
-    }
-    
-    var items = items
-    
-    // how to set these indentations appropriately?
-    // you don't have guaranteed clean indentation-levels
-    // every time you encoutner a parentId, you increment the nesting level
-    
-    // starts: parent indentation + 1
-    // ^^ does this assume its top level?
-    //    var indentationLevel = IndentationLevel(0).inc()
-    
-    // indentation level is relying on previous position,
-    // which is never updated during onDrag;
-    // instead, use the startingIndentationLevel from the proposedGroup
-//    var indentationLevel = item.indentationLevel.inc()
-    var indentationLevel = startingIndentationLevel.inc()
-    var currentParentId = item.id
-    
-//    log("_maybeSnapDescendants: indentationLevel at start: \(indentationLevel)")
-//    log("_maybeSnapDescendants: currentParentId at start: \(currentParentId)")
-    
-    for child in descendants {
-        
-        log("_maybeSnapDescendants: on child: \(child.id), \(child.color), \(child.location.x), parentId: \(child.parentId)")
-        
-        log("_maybeSnapDescendants: CURRENT: indentationLevel: \(indentationLevel)")
-        log("_maybeSnapDescendants: CURRENT: indentationLevel.toXLocation: \(indentationLevel.toXLocation)")
-        log("_maybeSnapDescendants: CURRENT: currentParentId: \(currentParentId)")
-        
-//        log("_maybeSnapDescendants: on child: \(child)")
-        // if we've changed parent ids, then we're on a new nesting level
-        // ... but maybe not correct when eg
-        if let childParentId = child.parentId,
-           childParentId != currentParentId {
-            
-            currentParentId = childParentId
-            
-            // this child is east of our previous indentation level,
-            // so we went deeper into nesting
-//            if child.location.x > indentationLevel.toXLocation {
-            
-            // compare against child's indentation level,
-            // which is not changed until the very end of onDragEnded
-            if child.indentationLevel.value > indentationLevel.value {
-                log("_maybeSnapDescendants: child was east")
-                indentationLevel = indentationLevel.inc()
-            }
-            
-            // this child is west of our previous indentation level,
-            // so we backed out a level
-//            else if child.location.x < indentationLevel.toXLocation {
-            else if child.indentationLevel.value < indentationLevel.value {
-                log("_maybeSnapDescendants: child was west")
-                indentationLevel = indentationLevel.dec()
-            } else {
-                log("_maybeSnapDescendants: child was aligned")
-            }
-        } else {
-            log("will not attempt indentation adjustment for child \(child.id)")
-        }
-        
-        var child = child
-        log("_maybeSnapDescendants: child location BEFORE setXLocationByIndentation: \(child.location.x)")
-        child = setXLocationByIndentation(child, indentationLevel)
-        log("_maybeSnapDescendants: child location after setXLocationByIndentation: \(child.location.x)")
-        items = updateItem(child, items)
-    }
-    
-    return items
-}
-
 
 func setXLocationByIndentation(_ item: RectItem,
                                _ indentationLevel: IndentationLevel) -> RectItem {
@@ -1345,15 +1229,15 @@ func setYPositionByIndices(originalItemId: ItemId,
                            isDragEnded: Bool = false,
                            _ viewHeight: Int = 100) -> RectItems {
     
-    log("will adjust positions of items (by id): \(items.map(\.id))")
+//    print("setYPositionByIndices: will adjust positions of items (by id): \(items.map(\.id))")
     
     return items.enumerated().map { (offset, item) in
         // need to keep the level of nesting, which never changes when reseting positions
         var item = item
         let newY = CGFloat(offset * viewHeight)
         
-        print("setYPositionByIndices: item id: \(item.id)")
-        print("setYPositionByIndices: newY: \(newY)")
+//        print("setYPositionByIndices: item id: \(item.id)")
+//        print("setYPositionByIndices: newY: \(newY)")
         
         if !isDragEnded && item.id == originalItemId {
             print("setYPositionByIndices: will not change originalItemId \(originalItemId)'s y-position until drag-is-ended")
@@ -1361,36 +1245,16 @@ func setYPositionByIndices(originalItemId: ItemId,
         }
         else {
             // Setting position by indices NEVER changes x location
-            let newLocation = CGPoint(x: item.location.x,
-                                      y: newY)
-            item.location = newLocation
-            
-            // better:
-//            item.location.y = newY
-            
+            item.location.y = newY
             
             // ONLY SET `previousLocation.y` HERE
             if isDragEnded {
     //            print("setYPositionByIndices: drag ended, so resetting previous position")
-    //            item.previousLocation = newLocation
-                item.previousLocation.y = newLocation.y
+                item.previousLocation.y = newY
             }
             return item
         }
-        
-        
-//        // Setting position by indices NEVER changes x location
-//        let newLocation = CGPoint(x: item.location.x,
-//                                  y: newY)
-//        item.location = newLocation
-//
-//        // ONLY SET `previousLocation.y` HERE
-//        if isDragEnded {
-////            print("setYPositionByIndices: drag ended, so resetting previous position")
-////            item.previousLocation = newLocation
-//            item.previousLocation.y = newLocation.y
-//        }
-//        return item
+
     }
 }
 
