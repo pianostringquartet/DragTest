@@ -20,7 +20,7 @@ struct ProposedGroup: Equatable {
     
     // better?: use `IndentationLevel`
     // ie aboveItem.location.x
-    let xIndentation: CGFloat
+    var xIndentation: CGFloat
     
     var indentationLevel: IndentationLevel {
         IndentationLevel.fromXLocation(x: xIndentation)
@@ -439,18 +439,21 @@ let sampleColors3: [MyColor] = [
 // repros a bug on main app...
 let sampleColors4: [MyColor] = [
     MyColor(color: .red),
-//    MyColor(color: .black, children: [
-//        MyColor(color: .cyan),
-//    ]),
+    MyColor(color: .black, children: [
+        MyColor(color: .cyan),
+    ]),
     MyColor(color: .blue, children: [
         MyColor(color: .brown, children: [
-            MyColor(color: .purple)
+            MyColor(color: .purple, children: [
+                MyColor(color: .yellow)
+            ])
         ]),
-        MyColor(color: .indigo, children: [
-            MyColor(color: .gray),
-        ]),
+//        MyColor(color: .indigo, children: [
+//            MyColor(color: .gray),
+//        ]),
     ]),
     MyColor(color: .green),
+//    MyColor(color: .yellow)
 ]
 
 

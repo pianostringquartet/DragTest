@@ -369,7 +369,7 @@ func getMovedtoIndex(item: RectItem,
 
     var maxIndex = items.count - 1
 
-    log("getMovedtoIndex: item: \(item.id) is group?: \(item.isGroup)")
+//    log("getMovedtoIndex: item: \(item.id) is group?: \(item.isGroup)")
 
     // special case:
     // if we moved a parent to the end of the items (minus parents' own children),
@@ -378,15 +378,15 @@ func getMovedtoIndex(item: RectItem,
 
         let itemsWithoutDraggedAlong = items.filter { x in !draggedAlong.contains(x.id) }
 
-            print("getMovedtoIndex: special case maxIndex: \(maxIndex)")
+//            print("getMovedtoIndex: special case maxIndex: \(maxIndex)")
             maxIndex = itemsWithoutDraggedAlong.count - 1
     }
 
     let maxY = maxIndex * VIEW_HEIGHT
 
-    print("getMovedtoIndex: item: \(item)")
-    print("getMovedtoIndex: maxY: \(maxY)")
-    print("getMovedtoIndex: movingDown: \(movingDown)")
+//    print("getMovedtoIndex: item: \(item)")
+//    print("getMovedtoIndex: maxY: \(maxY)")
+//    print("getMovedtoIndex: movingDown: \(movingDown)")
 
     // no, needs to be by steps of 100
     // otherwise 0...800 will be 800 numbers
@@ -401,8 +401,8 @@ func getMovedtoIndex(item: RectItem,
         range = range.reversed()
     }
 
-    print("getMovedtoIndex: range: \(range)")
-    print("getMovedtoIndex: item.location.y: \(item.location.y)")
+//    print("getMovedtoIndex: range: \(range)")
+//    print("getMovedtoIndex: item.location.y: \(item.location.y)")
 
     // try to find the highest threshold we (our item's location.y) satisfy
     for threshold in range {
@@ -420,14 +420,14 @@ func getMovedtoIndex(item: RectItem,
 //        if item.location.y > CGFloat(threshold) {
         if foundThreshold {
 
-            print("getMovedtoIndex: found at threshold: \(threshold)")
+//            print("getMovedtoIndex: found at threshold: \(threshold)")
 
             // still use the threshold, but now eg have to round up or down?
 
             // eg we were at 100; now at 49; so we me
 
             let j = (CGFloat(threshold)/CGFloat(VIEW_HEIGHT))
-            print("getMovedtoIndex: j: \(j)")
+//            print("getMovedtoIndex: j: \(j)")
             var k = j
 //            k.round(.toNearestOrAwayFromZero)
 
@@ -439,12 +439,12 @@ func getMovedtoIndex(item: RectItem,
                 k.round(.down)
             }
 
-            print("getMovedtoIndex: k: \(k)")
-            print("getMovedtoIndex: k as int: \(Int(k))")
+//            print("getMovedtoIndex: k: \(k)")
+//            print("getMovedtoIndex: k as int: \(Int(k))")
 
-            let i = threshold/VIEW_HEIGHT
+//            let i = threshold/VIEW_HEIGHT
 
-            print("getMovedtoIndex: i: \(i)")
+//            print("getMovedtoIndex: i: \(i)")
 //            return i
 
             // NEVER RETURN AN INDEX HIGHER THAN MAX-INDEX
@@ -459,7 +459,7 @@ func getMovedtoIndex(item: RectItem,
 
     // if didn't find anything, return the original index?
     let k = items.firstIndex { $0.id == item.id }!
-    print("getMovedtoIndex: k: \(k)")
+//    print("getMovedtoIndex: k: \(k)")
     return k
 }
 
@@ -883,21 +883,49 @@ func getItemsAbove(_ item: RectItem, _ items: RectItems) -> RectItems {
 func findDeepestParent(_ item: RectItem, // the moved-item
 //                       _ items: RectItems) -> ProposedGroup? {
                        _ masterList: MasterList,
+//                       cursorDrag: CursorDrag) -> (ProposedGroup?, Bool) {
                        cursorDrag: CursorDrag) -> ProposedGroup? {
     
-    var proposed: ProposedGroup? = nil
+//    var proposed: ProposedGroup? = nil
+    var proposals = [ProposedGroup]()
     
-//    log("findDeepestParent: item.id: \(item.id)")
-//    log("findDeepestParent: item.location.x: \(item.location.x)")
-//    log("findDeepestParent: cursorDrag: \(cursorDrag)")
+    log("findDeepestParent: item.id: \(item.id)")
+    log("findDeepestParent: item.location.x: \(item.location.x)")
+    log("findDeepestParent: cursorDrag: \(cursorDrag)")
     
     let items = masterList.items
     let excludedGroups = masterList.excludedGroups
-    let itemLocationX = cursorDrag.x
+    
+    var itemLocationX = cursorDrag.x
+    
+    log("findDeepestParent: itemLocationX was: \(itemLocationX)")
+    
+    let maxIndentationLevel = IndentationLevel(3)
+    
+    log("findDeepestParent: maxIndentationLevel.toXLocation was: \(maxIndentationLevel.toXLocation)")
+//
+//    // If we're trying to give a group an identation level greater than 3,
+//    // don't allow this
+//    if itemLocationX >= maxIndentationLevel.toXLocation
+//        && item.isGroup {
+//        itemLocationX = maxIndentationLevel.dec().toXLocation // maxIndentationLevel.toXLocation - 1
+//    }
+    
+//    if var _proposed = proposed,
+//        _proposed.indentationLevel.value >= 3,
+//       item.isGroup {
+//        _proposed.xIndentation = _proposed.indentationLevel.dec().toXLocation
+//        proposed = _proposed
+//    }
+    
+    
+    log("findDeepestParent: itemLocationX is now: \(itemLocationX)")
+    
+//    (proposed?.indentationLevel.value ?? 0) >= 3
     
     for itemAbove in getItemsAbove(item, items) {
-//        log("findDeepestParent: itemAbove.id: \(itemAbove.id)")
-//        log("findDeepestParent: itemAbove.location.x: \(itemAbove.location.x)")
+        log("findDeepestParent: itemAbove.id: \(itemAbove.id)")
+        log("findDeepestParent: itemAbove.location.x: \(itemAbove.location.x)")
         
         // ie is this dragged item at, or east of, the above item?
         if itemLocationX > itemAbove.location.x {
@@ -914,10 +942,11 @@ func findDeepestParent(_ item: RectItem, // the moved-item
                // make sure the itemAbove is also a group!
                itemAbove.isGroup
             {
-//                log("found itemAbove that has children; will make being-dragged-item")
-                
-                    proposed = ProposedGroup(parentId: itemAbove.id,
-                                             xIndentation: itemAbove.indentationLevel.inc().toXLocation)
+                log("found itemAbove that has children; will make being-dragged-item")
+                let proposed = ProposedGroup(
+                    parentId: itemAbove.id,
+                    xIndentation: itemAbove.indentationLevel.inc().toXLocation)
+                proposals.append(proposed)
             }
             
             // this can't quite be right --
@@ -926,33 +955,93 @@ func findDeepestParent(_ item: RectItem, // the moved-item
             
             else if let itemAboveParentId = itemAbove.parentId,
                     !excludedGroups[itemAboveParentId].isDefined {
-//                log("found itemAbove that is part of a group whose parent id is: \(itemAbove.parentId)")
-                proposed = ProposedGroup(
+                log("found itemAbove that is part of a group whose parent id is: \(itemAbove.parentId)")
+                let proposed = ProposedGroup(
                     parentId: itemAboveParentId,
                     xIndentation: itemAbove.location.x)
+                proposals.append(proposed)
             }
 
             // if the item above is NOT itself part of a group,
             // we'll just use the item above now as its parent
             else if !excludedGroups[itemAbove.id].isDefined,
                     itemAbove.isGroup {
-//                log("found itemAbove without parent")
-                proposed = ProposedGroup(
+                log("found itemAbove without parent")
+                let proposed = ProposedGroup(
                     parentId: itemAbove.id,
                     xIndentation: IndentationLevel(1).toXLocation)
+                proposals.append(proposed)
                 // ^^^ if item has no parent ie is top level,
                 // then need this indentation to be at least one level
             }
 //            log("findDeepestParent: found proposed: \(proposed)")
 //            log("findDeepestParent: ... for itemAbove: \(itemAbove.id)")
         } else {
-//            log("findDeepestParent: item \(item.id) was not at/east of itemAbove \(itemAbove.id)")
+            log("findDeepestParent: item \(item.id) was not at/east of itemAbove \(itemAbove.id)")
             
         }
     }
-//    log("findDeepestParent: final proposed: \(proposed)")
     
-    return proposed
+//    log("findDeepestParent: proposed: \(proposed)")
+    log("findDeepestParent: proposals: \(proposals)")
+    
+//    if item.isGroup,
+//       proposals.count > 1,
+//       let deepestProposed = proposals.last,
+////       deepestProposed.indentationLevel.value >= 3 {
+//       deepestProposed.indentationLevel.value >= 3 {
+//        proposals = proposals.dropLast()
+//    }
+    
+//    if item.isGroup,
+//       proposals.count > 1,
+//       let deepestProposed = proposals.last {
+//
+//        log("deepestProposed.indentationLevel.value: \(deepestProposed.indentationLevel.value)")
+//
+//        if deepestProposed.indentationLevel.value >= 3 {
+//            log("will drop last...")
+////            let ks = proposals.dropLast()
+////            log("will drop last... PROPOSALS NOW: \(ks)")
+////            let k = ks.last
+////            let k = proposals[proposals.count - 3]
+//
+//            // only look at groups with less than three indentation levels
+//            let ks = proposals.filter { $0.indentationLevel.value < 3 }
+//            log("will drop last... PROPOSALS NOW: \(ks)")
+//            // and take the last one...
+//            let k = ks.last
+//
+////            let k = proposals.dropLast(1).last
+////            proposals.removeLast()
+////            let k = proposals.last
+//            log("will drop last... k: \(k)")
+//            return (k, true)
+////            return proposals.dropLast().last
+//        }
+//    }
+    
+    
+//
+//    // no no! can't just change it here, since that proposedGroup.parentId will be group!
+//    if var _proposed = proposed,
+//        _proposed.indentationLevel.value >= 3,
+//       item.isGroup {
+//        _proposed.xIndentation = _proposed.indentationLevel.dec().toXLocation
+//        proposed = _proposed
+//    }
+    
+    
+//    if ((proposed?.indentationLevel.value ?? 0) >= 3)
+//        && item.isGroup {
+//        proposed?.indentationLevel = proposed?.indentationLevel.dec()
+//    }
+//    log("findDeepestParent: final proposed: \(proposed)")
+    log("findDeepestParent: final proposals: \(proposals)")
+    
+//    return proposed
+//    return (proposals.last, false)
+    return proposals.last
 }
 
 
@@ -1000,10 +1089,14 @@ func proposeGroup(_ item: RectItem, // the moved-item
     log("proposeGroup: will try to propose group for item: \(item.id)")
     
     // General rule:
-    
+//    var proposed: ProposedGroup? = nil
     var proposed = findDeepestParent(item,
+//    let (deepestProposed, wasCurtailed) = findDeepestParent(item,
                                      masterList,
                                      cursorDrag: cursorDrag)
+    
+//    proposed = deepestProposed
+    
     
     log("proposeGroup: proposed from trying to find deepest parent: \(proposed)")
     
@@ -1012,7 +1105,7 @@ func proposeGroup(_ item: RectItem, // the moved-item
     // does the item have a non-parent top-level it immediately above it?
     // if so, that blocks group proposal
     if blockedByTopLevelItemImmediatelyAbove(item, items) {
-        log("blocked by non-parent top-level item above")
+        log("proposeGroup: blocked by non-parent top-level item above")
 //        return nil
         proposed = nil
     }
@@ -1033,7 +1126,7 @@ func proposeGroup(_ item: RectItem, // the moved-item
                                                       movedItemChildrenCount: movedItemChildrenCount,
                                                       excludedGroups: masterList.excludedGroups) {
         
-        log("found group \(groupDueToChildBelow.parentId) from child below")
+        log("proposeGroup: found group \(groupDueToChildBelow.parentId) from child below")
         
         // if our drag is east of the proposed-from-below's indentation level,
         // and we already found a proposed group from 'deepest parent',
@@ -1041,9 +1134,23 @@ func proposeGroup(_ item: RectItem, // the moved-item
         let keepProposed = (groupDueToChildBelow.indentationLevel.toXLocation < cursorDrag.x) && proposed.isDefined
         
         if !keepProposed {
-            proposed = groupDueToChildBelow
+//            if !wasCurtailed {
+                // don't propose a group from child below
+                // if we curtailed the indentation
+                proposed = groupDueToChildBelow
+//            }
+            
+//            proposed = groupDueToChildBelow
         }
     }
+    
+//    log("proposeGroup: might return: \(proposed)")
+    
+    // don't limit it here -- limit it in findDeepestParent
+//    if (proposed?.indentationLevel.value ?? 0) >= 3 {
+//        log("proposeGroup: proposedParent was too deep \(proposed?.indentationLevel.value); resetting...")
+//        proposed = nil
+//    }
     
     log("proposeGroup: returning: \(proposed)")
     return proposed
